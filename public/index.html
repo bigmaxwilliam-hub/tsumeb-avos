@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-stone-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tsumeb Avos — Farm Fresh</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        avo: {
+                            50: '#f4f7f2',
+                            100: '#e5ece0',
+                            200: '#cbdac4',
+                            300: '#a6bf9a',
+                            400: '#7e9f70',
+                            500: '#5a7f4c',
+                            600: '#46643a',
+                            700: '#38502f',
+                            800: '#2d3f27',
+                            900: '#1b2818',
+                            dark: '#131d11',
+                            flesh: '#e3e8be',
+                            pit: '#6e4726',
+                            gold: '#d4a373'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['Playfair Display', 'Georgia', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Smooth Range Slider Styling */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: #46643a;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(70, 100, 58, 0.35);
+            transition: all 0.2s ease-in-out;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #38502f;
+        }
+        input[type=range]::-moz-range-thumb {
+            height: 28px;
+            width: 28px;
+            border-radius: 50%;
+            background: #46643a;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(70, 100, 58, 0.35);
+            border: none;
+        }
+        /* Custom Toast Fade Animation */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        /* Smooth Mound Item Transition */
+        .avo-mound-item {
+            transition: all 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+    </style>
+</head>
+<body class="h-full text-stone-800 font-sans antialiased flex flex-col justify-between selection:bg-avo-200 selection:text-avo-900">
+
+    <!-- Top Operational Status Bar (Demo Toggle for Testing Both States) -->
+    <div class="bg-stone-900 text-stone-300 text-[11px] py-1.5 px-3 shadow-inner">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <span class="flex items-center space-x-1.5 font-medium">
+                <span class="inline-block w-2 h-2 rounded-full animate-pulse" id="statusIndicatorDot"></span>
+                <span id="statusIndicatorText">Delivery Status</span>
+            </span>
+            <div class="flex items-center space-x-1 bg-stone-800 p-0.5 rounded-full border border-stone-700">
+                <button id="toggleConfirmedBtn" onclick="setDeliveryStatus(true)" class="px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200">
+                    <i class="fa-solid fa-truck-fast mr-1"></i> Open
+                </button>
+                <button id="toggleWaitlistBtn" onclick="setDeliveryStatus(false)" class="px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200">
+                    <i class="fa-solid fa-hourglass-half mr-1"></i> Waitlist
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Navigation -->
+    <header class="bg-stone-50 border-b border-stone-200/80 sticky top-0 z-30 backdrop-blur-md bg-stone-50/90">
+        <div class="max-w-md mx-auto px-4 py-2 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-7 h-7 bg-avo-600 rounded-full flex items-center justify-center text-stone-50 shadow-sm">
+                    <i class="fa-solid fa-seedling text-sm"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-serif font-semibold tracking-tight text-stone-900 leading-none">Tsumeb Avos</h1>
+                    <p class="text-[10px] text-stone-500 font-medium">Farm Fresh</p>
+                </div>
+            </div>
+            
+            <button onclick="toggleMyOrdersModal()" class="relative p-1.5 text-stone-600 hover:text-avo-700 transition">
+                <i class="fa-solid fa-receipt text-lg"></i>
+                <span id="orderBadge" class="hidden absolute top-1 right-1 w-2 h-2 bg-avo-600 rounded-full ring-2 ring-white"></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-md mx-auto w-full px-3.5 py-2.5 flex-1 flex flex-col justify-start">
+
+        <!-- Banner Alert based on Delivery Status -->
+        <div id="statusBanner" class="mb-2.5 px-3 py-2 rounded-xl border text-[11px] flex items-center space-x-2.5 transition-all duration-300">
+            <!-- Dynamic Content Injected via JS -->
+        </div>
+
+        <!-- Step Wizard Progress Indicator -->
+        <div class="mb-3">
+            <div class="flex items-center justify-between text-[11px] font-semibold text-stone-400">
+                <span id="stepLabel1" class="text-avo-700 flex items-center"><span class="w-4 h-4 rounded-full bg-avo-100 text-avo-800 flex items-center justify-center mr-1 text-[9px]">1</span> Bags</span>
+                <div class="flex-1 h-0.5 bg-stone-200 mx-2 rounded"></div>
+                <span id="stepLabel2" class="flex items-center"><span class="w-4 h-4 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center mr-1 text-[9px]">2</span> Details</span>
+                <div class="flex-1 h-0.5 bg-stone-200 mx-2 rounded"></div>
+                <span id="stepLabel3" class="flex items-center"><span id="step3Number" class="w-4 h-4 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center mr-1 text-[9px]">3</span> <span id="step3Title">Payment</span></span>
+            </div>
+        </div>
+
+        <!-- STEP 1: QUANTITY SELECTION -->
+        <section id="step1" class="step-card space-y-2.5">
+            <div class="flex items-baseline justify-between px-0.5">
+                <h2 class="text-lg font-serif font-bold text-stone-900">How many bags?</h2>
+                <p class="text-[11px] text-stone-500"><span class="font-semibold text-stone-700">10 avos/bag</span> • N$120</p>
+            </div>
+
+            <!-- Unified Interactive Mound & Slider Card -->
+            <div class="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden">
+                <!-- Mound Visual Header -->
+                <div class="bg-gradient-to-b from-stone-100 to-stone-200/50 px-4 pt-2 pb-2.5 text-center relative border-b border-stone-200/50">
+                    <div class="flex justify-between items-center relative z-20">
+                        <span class="text-[10px] text-stone-600 font-semibold bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-full border border-stone-200/60" id="deliveryScheduleTag">Wednesday Batch</span>
+                        <span class="bg-avo-900 text-stone-100 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full tracking-wider">N$120 / Bag</span>
+                    </div>
+                    
+                    <div class="flex justify-center items-end h-[88px] relative" id="avoBagDisplay">
+                        <!-- Dynamic Smooth Mound rendered via JS -->
+                    </div>
+
+                    <div class="relative z-20 leading-tight -mt-1">
+                        <span id="bagCountText" class="text-xl font-extrabold text-stone-900">1 Bag</span>
+                        <span class="text-stone-500 text-xs font-medium ml-1">(= <span id="totalAvosText">10</span> avocados)</span>
+                    </div>
+                </div>
+
+                <!-- Compact Slider Controls -->
+                <div class="px-4 py-3 space-y-1.5">
+                    <input type="range" id="quantityRange" min="1" max="15" value="1" step="1" 
+                           class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-avo-600 focus:outline-none"
+                           oninput="updateQuantity(this.value)">
+
+                    <div class="flex justify-between text-[10px] text-stone-400 font-medium px-0.5">
+                        <span>1 bag</span>
+                        <span>8 bags</span>
+                        <span>15 bags</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compact Delivery Checkbox & Pricing Card -->
+            <div class="bg-white rounded-2xl border border-stone-200/80 shadow-sm divide-y divide-stone-100">
+                <!-- Delivery Checkbox Toggle -->
+                <label for="deliveryCheckbox" class="p-3 flex items-center justify-between cursor-pointer hover:bg-stone-50/60 transition select-none">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-7 h-7 rounded-lg bg-avo-50 text-avo-700 flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-truck text-xs"></i>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-semibold text-stone-800 leading-tight">Need Delivery? (+N$50)</span>
+                        </div>
+                    </div>
+                    <input type="checkbox" id="deliveryCheckbox" onchange="toggleDeliveryOption(this.checked)" 
+                           class="w-4 h-4 accent-avo-600 rounded cursor-pointer focus:ring-avo-500">
+                </label>
+
+                <!-- Pricing Breakdown -->
+                <div class="p-3 space-y-1 text-xs">
+                    <div class="flex justify-between text-stone-500">
+                        <span>Subtotal (<span id="summaryBags">1</span> × N$120)</span>
+                        <span id="subtotalPrice" class="font-medium text-stone-700">N$120</span>
+                    </div>
+                    <div id="deliveryFeeRow" class="flex justify-between text-stone-500 hidden">
+                        <span>Fixed Delivery Fee</span>
+                        <span id="deliveryPrice" class="text-stone-700 font-medium">N$50</span>
+                    </div>
+                    <div id="pickupFeeRow" class="flex justify-between text-stone-500">
+                        <span>Collection</span>
+                        <span class="text-avo-700 font-medium">Self Pick-Up (Free)</span>
+                    </div>
+                    <div class="border-t border-stone-100 pt-1.5 flex justify-between items-baseline font-bold text-stone-900">
+                        <span class="text-xs">Total Amount</span>
+                        <span id="totalPrice" class="text-avo-700 text-base">N$120</span>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="goToStep(2)" class="w-full bg-avo-600 hover:bg-avo-700 active:scale-[0.99] text-white py-3 rounded-xl font-semibold shadow-md shadow-avo-600/20 transition-all flex items-center justify-center space-x-2 text-sm">
+                <span>Continue to Details</span>
+                <i class="fa-solid fa-arrow-right text-xs"></i>
+            </button>
+        </section>
+
+        <!-- STEP 2: CUSTOMER INFORMATION -->
+        <section id="step2" class="step-card space-y-3 hidden">
+            <div class="flex items-baseline justify-between px-0.5">
+                <h2 class="text-lg font-serif font-bold text-stone-900">Your Contact Info</h2>
+                <p id="step2Subtext" class="text-[11px] text-stone-500">Updates via SMS/WhatsApp</p>
+            </div>
+
+            <form id="customerForm" onsubmit="handleFormSubmit(event)" class="space-y-2.5">
+                <div>
+                    <label class="block text-[10px] font-bold text-stone-600 uppercase tracking-wider mb-1">Full Name *</label>
+                    <div class="relative">
+                        <i class="fa-regular fa-user absolute left-3.5 top-2.5 text-stone-400 text-xs"></i>
+                        <input type="text" id="custName" required placeholder="e.g., Sarah Ndamu" 
+                               class="w-full pl-9 pr-3 py-2 bg-white border border-stone-200 rounded-xl text-stone-800 text-xs focus:ring-2 focus:ring-avo-600 focus:border-transparent outline-none transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-stone-600 uppercase tracking-wider mb-1">Phone / WhatsApp *</label>
+                    <div id="phoneInputWrapper" class="flex items-center bg-white border border-stone-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-avo-600 focus-within:border-transparent transition">
+                        <div class="pl-3.5 pr-2.5 py-2 bg-stone-50 border-r border-stone-200 text-stone-600 text-xs font-semibold flex items-center space-x-1.5 select-none">
+                            <i class="fa-solid fa-phone text-stone-400 text-[11px]"></i>
+                            <span>+264</span>
+                        </div>
+                        <input type="tel" id="custPhone" required 
+                               oninput="handlePhoneInput(this)"
+                               class="w-full px-3 py-2 bg-white text-stone-800 text-xs outline-none">
+                    </div>
+                    <p id="phoneError" class="text-[10px] text-red-600 font-medium mt-1 hidden">
+                        <i class="fa-solid fa-circle-exclamation mr-1"></i>Please enter a valid Namibian phone number.
+                    </p>
+                </div>
+
+                <!-- Pick Up Point Information Card (Shown when Delivery is NOT ticked) -->
+                <div id="pickupInfoSection" class="bg-avo-50/90 border border-avo-200 rounded-xl p-3 space-y-1">
+                    <div class="flex items-center space-x-1.5 text-avo-800 font-bold text-[10px] uppercase tracking-wider">
+                        <i class="fa-solid fa-map-pin text-avo-600"></i>
+                        <span>Pick-Up Point Address</span>
+                    </div>
+                    <p class="text-xs font-semibold text-stone-900">Tsumeb Avos Collection Depot</p>
+                    <p class="text-[11px] text-stone-600 leading-snug">
+                        4 BC Barnes, Klein Windhoek
+                    </p>
+                </div>
+
+                <!-- Delivery Address & Notes (Shown ONLY when Delivery is ticked) -->
+                <div id="deliveryFieldsSection" class="space-y-2.5 hidden">
+                    <div>
+                        <label class="block text-[10px] font-bold text-stone-600 uppercase tracking-wider mb-1">Delivery Street Address & Number *</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-location-dot absolute left-3.5 top-2.5 text-stone-400 text-xs"></i>
+                            <input type="text" id="custAddress" placeholder="e.g., 24 Olof Palme Street, Eros" 
+                                   oninput="clearFieldError('custAddress', 'addressError')"
+                                   class="w-full pl-9 pr-3 py-2 bg-white border border-stone-200 rounded-xl text-stone-800 text-xs focus:ring-2 focus:ring-avo-600 focus:border-transparent outline-none transition">
+                        </div>
+                        <p id="addressError" class="text-[10px] text-red-600 font-medium mt-1 hidden">
+                            <i class="fa-solid fa-circle-exclamation mr-1"></i>Include both street name and number (e.g., 24 Olof Palme St).
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-stone-600 uppercase tracking-wider mb-1">Extra Delivery Notes (Optional)</label>
+                        <input type="text" id="custNotes" placeholder="Gate code, complex name, drop-off notes..." 
+                               class="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-stone-800 text-xs focus:ring-2 focus:ring-avo-600 focus:border-transparent outline-none transition">
+                    </div>
+                </div>
+
+                <div class="pt-1 flex items-center space-x-2.5">
+                    <button type="button" onclick="goToStep(1)" class="w-1/3 border border-stone-300 text-stone-700 py-2.5 rounded-xl font-medium text-xs hover:bg-stone-100 transition">
+                        Back
+                    </button>
+                    <button type="submit" class="w-2/3 bg-avo-600 hover:bg-avo-700 active:scale-[0.99] text-white py-2.5 rounded-xl font-semibold shadow-md shadow-avo-600/20 transition flex items-center justify-center space-x-1.5 text-xs">
+                        <span id="submitBtnText">Review & Submit</span>
+                        <i class="fa-solid fa-check text-[10px]"></i>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- STEP 3A: CONFIRMED ORDER & PAYMENT INSTRUCTIONS -->
+        <section id="step3Confirmed" class="step-card space-y-2.5 hidden">
+            <div class="bg-avo-50 border border-avo-200 rounded-2xl p-3 text-center space-y-1">
+                <div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-avo-100 text-avo-700 mb-0.5">
+                    <i class="fa-solid fa-circle-check text-lg"></i>
+                </div>
+                <h2 class="text-xl font-serif font-bold text-stone-900 leading-tight">Order Placed!</h2>
+                <p class="text-[11px] text-stone-600">
+                    Pay by <strong id="paymentDeadlineText" class="text-amber-800">Saturday 11:59 PM</strong>
+                    <span class="inline-block ml-1 text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.2 rounded-full">Unpaid released Sun</span>
+                </p>
+            </div>
+
+            <!-- Unique Reference & Total Card -->
+            <div class="bg-avo-900 text-stone-100 p-4 rounded-2xl shadow-md text-center space-y-2">
+                <div>
+                    <div class="text-[10px] uppercase tracking-widest text-avo-300 font-semibold">Payment Reference</div>
+                    <div class="flex items-center justify-center space-x-2 mt-0.5">
+                        <span id="displayRefNumber" class="text-3xl font-mono font-extrabold text-white tracking-wider">W001</span>
+                        <button onclick="copyToClipboard('displayRefNumber')" class="text-avo-300 hover:text-white p-1.5 rounded-lg bg-avo-800/60 transition" title="Copy Reference">
+                            <i class="fa-regular fa-copy text-sm"></i>
+                        </button>
+                    </div>
+                    <span class="text-[11px] text-avo-200 block mt-0.5">Use <strong class="text-white font-mono" id="displayRefNumberSub">W001</strong> as your payment reference</span>
+                </div>
+                <div class="border-t border-avo-800 pt-2 flex items-center justify-center space-x-2">
+                    <span class="text-xs text-stone-300">Total Amount Due:</span>
+                    <span id="displayRefTotal" class="text-xl font-bold text-avo-gold">N$170</span>
+                </div>
+            </div>
+
+            <!-- Payment Methods Toggle (EFT vs FNB eWallet) -->
+            <div class="bg-white rounded-2xl border border-stone-200/80 p-3 shadow-sm space-y-2.5">
+                <div class="flex rounded-lg bg-stone-100 p-0.5">
+                    <button id="payTabEft" onclick="switchPaymentTab('eft')" class="flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all bg-white text-stone-900 shadow-sm">
+                        <i class="fa-solid fa-building-columns mr-1"></i> Bank EFT
+                    </button>
+                    <button id="payTabWallet" onclick="switchPaymentTab('wallet')" class="flex-1 py-1.5 rounded-md text-[11px] font-bold text-stone-500 transition-all">
+                        <i class="fa-solid fa-mobile-screen-button mr-1"></i> FNB eWallet
+                    </button>
+                </div>
+
+                <!-- EFT Payment Details -->
+                <div id="eftDetails" class="text-[11px]">
+                    <div class="p-2.5 bg-stone-50 rounded-xl space-y-1.5 border border-stone-100">
+                        <div class="flex justify-between">
+                            <span class="text-stone-500">Bank</span>
+                            <span class="font-semibold text-stone-800">FNB Namibia (Branch: 280172)</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-stone-500">Account Name</span>
+                            <span class="font-semibold text-stone-800">Tsumeb Avos</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-stone-500">Account Number</span>
+                            <div class="flex items-center space-x-1">
+                                <span id="bankAccNo" class="font-mono font-semibold text-stone-800">62849201948</span>
+                                <button onclick="copyText('62849201948')" class="text-stone-400 hover:text-stone-700 ml-1"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- eWallet Payment Details -->
+                <div id="walletDetails" class="text-[11px] hidden">
+                    <div class="p-2.5 bg-stone-50 rounded-xl space-y-1.5 border border-stone-100">
+                        <div class="flex justify-between">
+                            <span class="text-stone-500">Send FNB eWallet To</span>
+                            <div class="flex items-center space-x-1">
+                                <span id="walletNo" class="font-mono font-semibold text-stone-800">+264 81 640 6797</span>
+                                <button onclick="copyText('+264816406797')" class="text-stone-400 hover:text-stone-700 ml-1"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-stone-500">Accepted Service</span>
+                            <span class="font-semibold text-stone-800">FNB eWallet</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 pt-0.5">
+                <button onclick="resetApp()" class="w-1/3 border border-stone-300 text-stone-600 hover:text-stone-900 py-2.5 rounded-xl text-xs font-medium transition">
+                    ← New
+                </button>
+                <button onclick="shareOrderToWhatsApp()" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-semibold shadow-md transition flex items-center justify-center space-x-1.5 text-xs">
+                    <i class="fa-brands fa-whatsapp text-base"></i>
+                    <span>Send Proof via WhatsApp</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- STEP 3B: NO DELIVERY DATE (WAITLIST NOTIFICATION CONFIRMATION) -->
+        <section id="step3Waitlist" class="step-card space-y-3 hidden">
+            <div class="flex items-center space-x-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <div class="w-8 h-8 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center flex-shrink-0 text-sm">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-serif font-bold text-stone-900">Added to Priority List!</h2>
+                    <p class="text-[11px] text-stone-600">No payment needed now. We'll notify you when ready.</p>
+                </div>
+            </div>
+
+            <!-- Waitlist Card Details -->
+            <div class="bg-stone-900 text-stone-100 p-4 rounded-2xl shadow-md text-center space-y-1.5">
+                <div class="text-[10px] uppercase tracking-widest text-avo-300 font-semibold">Your Waitlist Pass</div>
+                <div class="flex items-center justify-center space-x-2">
+                    <span id="displayWaitNumber" class="text-xl font-mono font-extrabold text-amber-300">WAIT-001</span>
+                    <button onclick="copyToClipboard('displayWaitNumber')" class="text-stone-400 hover:text-white p-1" title="Copy ID">
+                        <i class="fa-regular fa-copy text-xs"></i>
+                    </button>
+                </div>
+                <p class="text-[11px] text-stone-300 leading-snug">
+                    Spot saved for <strong id="waitlistBagsCount" class="text-white">1 bag</strong> for the upcoming Wednesday batch.
+                </p>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl border border-stone-200/80 text-xs space-y-1.5">
+                <div class="flex justify-between text-stone-600">
+                    <span>Contact:</span>
+                    <span class="font-medium text-stone-800"><span id="waitlistName">-</span> (<span id="waitlistPhone">-</span>)</span>
+                </div>
+                <div class="flex justify-between text-stone-600">
+                    <span>Estimated Total:</span>
+                    <span id="waitlistTotal" class="font-bold text-avo-700">-</span>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button onclick="resetApp()" class="w-1/3 border border-stone-300 text-stone-600 hover:text-stone-900 py-2.5 rounded-xl text-xs font-medium transition">
+                    ← Home
+                </button>
+                <button onclick="shareWaitlistToWhatsApp()" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-semibold shadow-md transition flex items-center justify-center space-x-1.5 text-xs">
+                    <i class="fa-brands fa-whatsapp text-base"></i>
+                    <span>Confirm via WhatsApp</span>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Compact Footer -->
+    <footer class="py-2 text-center text-[10px] text-stone-400 border-t border-stone-200/60">
+        <p>© 2026 Tsumeb Avos • Farm Fresh • Organically Grown</p>
+    </footer>
+
+    <!-- MY ORDERS MODAL -->
+    <div id="ordersModal" class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-4 max-h-[85vh] overflow-y-auto shadow-2xl animate-fade-in-up">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-serif font-bold text-stone-900">Your Recent Orders</h3>
+                <button onclick="toggleMyOrdersModal()" class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:text-stone-800">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="ordersList" class="space-y-3">
+                <!-- Dynamically populated orders -->
+            </div>
+
+            <button onclick="toggleMyOrdersModal()" class="w-full bg-stone-100 text-stone-700 py-2.5 rounded-xl text-xs font-semibold hover:bg-stone-200 transition">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center space-x-2 z-50 opacity-0 pointer-events-none transition-all duration-300">
+        <i class="fa-solid fa-circle-check text-avo-400"></i>
+        <span id="toastMsg">Copied to clipboard!</span>
+    </div>
+
+    <!-- APPLICATION LOGIC JS -->
+    <script>
+        // CONFIGURATION & EXACT PRICING CONSTANTS
+        const PRICE_PER_BAG = 120; // N$120 per bag (10 x N$12)
+        const FIXED_DELIVERY_FEE = 50; // N$50 fixed delivery fee
+        const PICKUP_ADDRESS = "4 BC Barnes, Klein Windhoek";
+        const WHATSAPP_NUMBER = "264816406797"; // +264816406797
+        
+        // APP STATE
+        let isDeliveryConfirmed = true; 
+        let isDeliverySelected = false; // Controlled by checkbox on Step 1
+        let currentStep = 1;
+        let selectedBags = 1;
+        let currentOrderData = null;
+        let localOrders = JSON.parse(localStorage.getItem('avo_orders') || '[]');
+
+        // HELPER TO GENERATE DAILY ORDER REFERENCE (e.g., W001 on Wednesday, F057 on Friday)
+        function generateDailyOrderReference(isWaitlist = false) {
+            const now = new Date();
+            const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun, Mon, Tue, Wed, Thu, Fri, Sat
+            const dayLetter = dayLetters[now.getDay()];
+            const todayKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+            const savedDate = localStorage.getItem('avo_order_date');
+            let dailyCount = parseInt(localStorage.getItem('avo_daily_order_counter') || '1', 10);
+
+            // Reset counter to 1 if it is a new calendar day
+            if (savedDate !== todayKey) {
+                dailyCount = 1;
+                localStorage.setItem('avo_order_date', todayKey);
+            }
+
+            const formattedNum = String(dailyCount).padStart(3, '0');
+            
+            // Increment and save for the next order placed today
+            localStorage.setItem('avo_daily_order_counter', (dailyCount + 1).toString());
+
+            return isWaitlist ? `WAIT-${dayLetter}${formattedNum}` : `${dayLetter}${formattedNum}`;
+        }
+
+        // Pre-calculated compact organic mound offsets (dx in px, dy in px from base, rot in deg) for 15 items
+        const MOUND_POSITIONS = [
+            // Base layer
+            { dx: 0, dy: 4, rot: -4 },
+            { dx: -20, dy: 3, rot: -14 },
+            { dx: 20, dy: 3, rot: 12 },
+            { dx: -40, dy: 1, rot: -22 },
+            { dx: 40, dy: 1, rot: 20 },
+            // Second layer
+            { dx: -10, dy: 16, rot: 8 },
+            { dx: 10, dy: 16, rot: -8 },
+            { dx: -30, dy: 14, rot: -15 },
+            { dx: 30, dy: 14, rot: 16 },
+            { dx: -50, dy: 0, rot: -26 },
+            { dx: 50, dy: 0, rot: 26 },
+            // Third & Peak layer
+            { dx: 0, dy: 28, rot: 3 },
+            { dx: -18, dy: 26, rot: -10 },
+            { dx: 18, dy: 26, rot: 11 },
+            { dx: 0, dy: 38, rot: 0 }
+        ];
+
+        // INITIALIZATION
+        window.addEventListener('DOMContentLoaded', () => {
+            initMoundDOM();
+            setDeliveryStatus(true); // Default to confirmed Wednesday batch
+            toggleDeliveryOption(false); // Default to unticked (Pick-up)
+            updateQuantity(1);
+            updateBadgeCount();
+        });
+
+        // INITIALIZE MOUND ELEMENTS ONCE FOR SMOOTH TRANSITIONS
+        function initMoundDOM() {
+            const container = document.getElementById('avoBagDisplay');
+            let html = `
+                <!-- Soft Ground Shadow that scales with mound -->
+                <div id="moundShadow" class="avo-mound-item absolute bottom-1.5 left-1/2 -translate-x-1/2 h-3.5 bg-avo-900/15 rounded-full blur-sm pointer-events-none" style="width: 75px;"></div>
+                <!-- Mound Container -->
+                <div id="moundWrapper" class="avo-mound-item relative w-full h-[85px] flex items-end justify-center">
+            `;
+
+            MOUND_POSITIONS.forEach((pos, idx) => {
+                const isCutAvo = idx % 3 === 0; // Show halved avocado with pit on every 3rd item for visual richness
+                html += `
+                    <div id="moundItem_${idx}" 
+                         class="avo-mound-item absolute bottom-1.5 select-none pointer-events-none flex items-center justify-center"
+                         style="transform: translate(${pos.dx}px, 15px) scale(0) rotate(0deg); opacity: 0; z-index: ${idx + 1};">
+                        <svg width="30" height="36" viewBox="0 0 40 48" class="drop-shadow">
+                            <!-- Outer Dark Green Skin -->
+                            <path d="M20 2 C11 2, 4 17, 4 30 C4 41, 11 46, 20 46 C29 46, 36 41, 36 30 C36 17, 29 2, 20 2 Z" fill="#2d3f27" stroke="#1b2818" stroke-width="1.5"/>
+                            <!-- Creamy Green Flesh -->
+                            <path d="M20 5 C13 5, 7 18, 7 30 C7 39, 12.5 43, 20 43 C27.5 43, 33 39, 33 30 C33 18, 27 5, 20 5 Z" fill="${isCutAvo ? '#e3e8be' : '#46643a'}"/>
+                            ${isCutAvo ? `
+                                <!-- Rich Avocado Pit -->
+                                <circle cx="20" cy="31" r="7.5" fill="#6e4726" />
+                                <circle cx="17.5" cy="29" r="2.2" fill="#8c5d35" opacity="0.7" />
+                            ` : `
+                                <!-- Subtle Gloss on Whole Avocado -->
+                                <ellipse cx="15" cy="20" rx="3" ry="7" fill="#5a7f4c" opacity="0.5" transform="rotate(-12 15 20)"/>
+                            `}
+                        </svg>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        // SMOOTH MOUND UPDATE ON SLIDER INPUT
+        function renderBagVisuals(count) {
+            const shadow = document.getElementById('moundShadow');
+            const wrapper = document.getElementById('moundWrapper');
+            if (!shadow || !wrapper) return;
+
+            // Smoothly widen shadow and slightly swell overall mound scale
+            const shadowWidth = 65 + (count * 6);
+            shadow.style.width = `${shadowWidth}px`;
+            const overallScale = 0.92 + (count * 0.01);
+            wrapper.style.transform = `scale(${overallScale})`;
+
+            MOUND_POSITIONS.forEach((pos, idx) => {
+                const el = document.getElementById(`moundItem_${idx}`);
+                if (!el) return;
+
+                if (idx < count) {
+                    el.style.opacity = '1';
+                    el.style.transform = `translate(${pos.dx}px, ${-pos.dy}px) scale(1) rotate(${pos.rot}deg)`;
+                } else {
+                    el.style.opacity = '0';
+                    el.style.transform = `translate(${pos.dx * 0.4}px, 12px) scale(0) rotate(0deg)`;
+                }
+            });
+        }
+
+        // TOGGLE DELIVERY CHECKBOX OPTION
+        function toggleDeliveryOption(checked) {
+            isDeliverySelected = checked;
+            const deliveryCheckbox = document.getElementById('deliveryCheckbox');
+            if (deliveryCheckbox && deliveryCheckbox.checked !== checked) {
+                deliveryCheckbox.checked = checked;
+            }
+
+            const deliveryFeeRow = document.getElementById('deliveryFeeRow');
+            const pickupFeeRow = document.getElementById('pickupFeeRow');
+            const pickupInfoSection = document.getElementById('pickupInfoSection');
+            const deliveryFieldsSection = document.getElementById('deliveryFieldsSection');
+            const custAddressInput = document.getElementById('custAddress');
+
+            if (isDeliverySelected) {
+                deliveryFeeRow.classList.remove('hidden');
+                pickupFeeRow.classList.add('hidden');
+                pickupInfoSection.classList.add('hidden');
+                deliveryFieldsSection.classList.remove('hidden');
+                custAddressInput.setAttribute('required', 'required');
+            } else {
+                deliveryFeeRow.classList.add('hidden');
+                pickupFeeRow.classList.remove('hidden');
+                pickupInfoSection.classList.remove('hidden');
+                deliveryFieldsSection.classList.add('hidden');
+                custAddressInput.removeAttribute('required');
+                clearFieldError('custAddress', 'addressError');
+            }
+
+            // Recalculate totals
+            updateQuantity(selectedBags);
+        }
+
+        // CLEAR INLINE VALIDATION ERRORS
+        function clearFieldError(inputId, errorId) {
+            const inputEl = document.getElementById(inputId);
+            const errorEl = document.getElementById(errorId);
+            if (inputEl) {
+                inputEl.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+                inputEl.classList.add('border-stone-200');
+            }
+            if (errorEl) {
+                errorEl.classList.add('hidden');
+            }
+        }
+
+        // HANDLE PHONE INPUT (AUTO-STRIP LEADING 0 OR +264)
+        function handlePhoneInput(input) {
+            let val = input.value;
+            // If user pastes +264, strip it since +264 is already prefixed
+            val = val.replace(/^\+?264\s*/, '');
+            // Remove leading 0s (e.g., 081 -> 81)
+            val = val.replace(/^0+/, '');
+            // Allow only digits and spaces
+            val = val.replace(/[^\d\s]/g, '');
+            if (input.value !== val) {
+                input.value = val;
+            }
+            clearFieldError('phoneInputWrapper', 'phoneError');
+        }
+
+        // VALIDATE NAMIBIAN PHONE NUMBER (8 or 9 digits after +264, starting 1-9)
+        function isValidNamibianPhone(phoneStr) {
+            const cleaned = phoneStr.replace(/\D/g, '');
+            const namibianPhoneRegex = /^[1-9]\d{7,8}$/;
+            return namibianPhoneRegex.test(cleaned);
+        }
+
+        // VALIDATE STREET ADDRESS & NUMBER
+        function isValidStreetAddress(addressStr) {
+            const trimmed = addressStr.trim();
+            // Must contain at least one number (house/erf/unit number) and a street name (at least 3 letters)
+            const hasNumber = /\d+/.test(trimmed);
+            const hasStreetName = /[a-zA-Z]{3,}/.test(trimmed);
+            return trimmed.length >= 5 && hasNumber && hasStreetName;
+        }
+
+        // STEP WIZARD NAVIGATION FUNCTION
+        function goToStep(stepNumber) {
+            currentStep = stepNumber;
+            
+            // Hide all step cards
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3Confirmed').classList.add('hidden');
+            document.getElementById('step3Waitlist').classList.add('hidden');
+
+            // Reset step header indicators
+            const s1 = document.getElementById('stepLabel1');
+            const s2 = document.getElementById('stepLabel2');
+            const s3 = document.getElementById('step3Number');
+            const s3Title = document.getElementById('step3Title');
+
+            // Show target step
+            if (stepNumber === 1) {
+                document.getElementById('step1').classList.remove('hidden');
+                s1.className = "text-avo-700 flex items-center";
+                s2.className = "flex items-center text-stone-400";
+            } else if (stepNumber === 2) {
+                document.getElementById('step2').classList.remove('hidden');
+                s1.className = "flex items-center text-stone-400";
+                s2.className = "text-avo-700 flex items-center";
+            } else if (stepNumber === 3) {
+                s1.className = "flex items-center text-stone-400";
+                s2.className = "flex items-center text-stone-400";
+                
+                if (isDeliveryConfirmed) {
+                    document.getElementById('step3Confirmed').classList.remove('hidden');
+                } else {
+                    document.getElementById('step3Waitlist').classList.remove('hidden');
+                }
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // switchPaymentTab helper for EFT / eWallet tabs
+        function switchPaymentTab(tab) {
+            const tabEft = document.getElementById('payTabEft');
+            const tabWallet = document.getElementById('payTabWallet');
+            const eftDetails = document.getElementById('eftDetails');
+            const walletDetails = document.getElementById('walletDetails');
+
+            if (tab === 'eft') {
+                tabEft.className = "flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all bg-white text-stone-900 shadow-sm";
+                tabWallet.className = "flex-1 py-1.5 rounded-md text-[11px] font-bold text-stone-500 transition-all";
+                eftDetails.classList.remove('hidden');
+                walletDetails.classList.add('hidden');
+            } else {
+                tabWallet.className = "flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all bg-white text-stone-900 shadow-sm";
+                tabEft.className = "flex-1 py-1.5 rounded-md text-[11px] font-bold text-stone-500 transition-all";
+                walletDetails.classList.remove('hidden');
+                eftDetails.classList.add('hidden');
+            }
+        }
+
+        // CALCULATE PAYMENT DEADLINE (SATURDAY BEFORE NEXT WEDNESDAY DELIVERY)
+        function getPaymentDeadline() {
+            const today = new Date();
+            const dayOfWeek = today.getDay(); // 0: Sun, 1: Mon, ..., 3: Wed, 6: Sat
+            
+            // Calculate upcoming Wednesday
+            const nextWed = new Date(today);
+            let daysUntilWed = (3 - dayOfWeek + 7) % 7;
+            if (daysUntilWed === 0) daysUntilWed = 7; // if today is wednesday, point to next wednesday
+            nextWed.setDate(today.getDate() + daysUntilWed);
+
+            // Saturday before that Wednesday (Wednesday minus 4 days)
+            const saturday = new Date(nextWed);
+            saturday.setDate(nextWed.getDate() - 4);
+
+            const wedText = nextWed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            const satText = saturday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+            return {
+                nextWedText: wedText,
+                deadlineText: `${satText} 11:59 PM`
+            };
+        }
+
+        // DELIVERY STATUS TOGGLE LOGIC (STATE A vs STATE B)
+        function setDeliveryStatus(status) {
+            isDeliveryConfirmed = status;
+            
+            const btnConfirmed = document.getElementById('toggleConfirmedBtn');
+            const btnWaitlist = document.getElementById('toggleWaitlistBtn');
+            const dot = document.getElementById('statusIndicatorDot');
+            const text = document.getElementById('statusIndicatorText');
+            const banner = document.getElementById('statusBanner');
+            const submitBtnText = document.getElementById('submitBtnText');
+            const step3Title = document.getElementById('step3Title');
+
+            const dates = getPaymentDeadline();
+
+            if (isDeliveryConfirmed) {
+                btnConfirmed.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold bg-avo-600 text-white shadow-sm";
+                btnWaitlist.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold text-stone-400 hover:text-stone-200";
+                dot.className = "inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+                text.innerText = `Next Batch: ${dates.nextWedText}`;
+
+                banner.className = "mb-2.5 px-3 py-2 rounded-xl border text-[11px] flex items-center space-x-2.5 bg-avo-50/80 border-avo-200 text-avo-900";
+                banner.innerHTML = `
+                    <i class="fa-solid fa-truck-ramp-box text-avo-600 text-sm flex-shrink-0"></i>
+                    <div class="leading-tight">
+                        <strong class="font-bold">Wed (${dates.nextWedText}) Delivery Open</strong> • Pay by <strong>${dates.deadlineText}</strong>
+                    </div>
+                `;
+                submitBtnText.innerText = "Proceed to Payment";
+                step3Title.innerText = "Payment";
+            } else {
+                btnWaitlist.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-600 text-white shadow-sm";
+                btnConfirmed.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold text-stone-400 hover:text-stone-200";
+                dot.className = "inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+                text.innerText = "Harvest Pending";
+
+                banner.className = "mb-2.5 px-3 py-2 rounded-xl border text-[11px] flex items-center space-x-2.5 bg-amber-50/80 border-amber-200 text-amber-900";
+                banner.innerHTML = `
+                    <i class="fa-solid fa-hourglass-half text-amber-600 text-sm flex-shrink-0"></i>
+                    <div class="leading-tight">
+                        <strong class="font-bold">Batch Full / Pending</strong> • Join priority waitlist (no payment now)
+                    </div>
+                `;
+                submitBtnText.innerText = "Join Priority Waitlist";
+                step3Title.innerText = "Waitlist";
+            }
+        }
+
+        // QUANTITY SELECTION & DYNAMIC PRICING (N$120/bag + optional N$50 delivery)
+        function updateQuantity(bags) {
+            selectedBags = parseInt(bags);
+            document.getElementById('bagCountText').innerText = `${selectedBags} ${selectedBags === 1 ? 'Bag' : 'Bags'}`;
+            document.getElementById('totalAvosText').innerText = selectedBags * 10;
+            document.getElementById('summaryBags').innerText = selectedBags;
+
+            renderBagVisuals(selectedBags);
+
+            let subtotal = selectedBags * PRICE_PER_BAG;
+            let deliveryCost = isDeliverySelected ? FIXED_DELIVERY_FEE : 0;
+            let total = subtotal + deliveryCost;
+
+            document.getElementById('subtotalPrice').innerText = `N$${subtotal}`;
+            document.getElementById('deliveryPrice').innerText = `N$${FIXED_DELIVERY_FEE}`;
+            document.getElementById('totalPrice').innerText = `N$${total}`;
+        }
+
+        // FORM SUBMISSION & API POST
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('custName').value.trim();
+            const phoneInput = document.getElementById('custPhone');
+            const phoneWrapper = document.getElementById('phoneInputWrapper');
+            const rawPhone = phoneInput.value.replace(/^0+/, '').replace(/\s+/g, '');
+            const addressInput = document.getElementById('custAddress');
+
+            let hasError = false;
+
+            // 1. Validate Phone Number
+            if (!isValidNamibianPhone(rawPhone)) {
+                phoneWrapper.classList.remove('border-stone-200');
+                phoneWrapper.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+                document.getElementById('phoneError').classList.remove('hidden');
+                hasError = true;
+            }
+
+            const phone = `+264 ${rawPhone}`;
+
+            // 2. Validate Street Address & Number if Delivery is selected
+            if (isDeliverySelected) {
+                const rawAddress = addressInput.value.trim();
+                if (!isValidStreetAddress(rawAddress)) {
+                    addressInput.classList.remove('border-stone-200');
+                    addressInput.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+                    document.getElementById('addressError').classList.remove('hidden');
+                    hasError = true;
+                }
+            }
+
+            if (hasError) {
+                showToast('Please check the highlighted fields');
+                return;
+            }
+
+            const address = isDeliverySelected 
+                ? addressInput.value.trim() 
+                : `Pick-Up: ${PICKUP_ADDRESS}`;
+            const notes = isDeliverySelected 
+                ? document.getElementById('custNotes').value.trim() 
+                : '';
+            const dates = getPaymentDeadline();
+
+            const totalAmountStr = document.getElementById('totalPrice').innerText;
+            const fullNote = `${address}${notes ? ` | Notes: ${notes}` : ''}`;
+
+            // Send order to backend API
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        phone: phone,
+                        quantity: selectedBags * 10, // store total number of avocados or bags as requested (quantity = number of avocados or bags)
+                        note: fullNote
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    showToast(result.error || 'Failed to submit order.');
+                    return;
+                }
+
+                const serverOrderId = `#${result.id}`;
+
+                if (isDeliveryConfirmed) {
+                    currentOrderData = {
+                        id: serverOrderId,
+                        type: 'Confirmed Order',
+                        fulfillment: isDeliverySelected ? 'Home Delivery' : 'Self Pick-Up',
+                        name: name,
+                        phone: phone,
+                        address: address,
+                        notes: notes,
+                        bags: selectedBags,
+                        total: totalAmountStr,
+                        deadline: dates.deadlineText,
+                        wednesdayDate: dates.nextWedText,
+                        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+                        status: 'Payment Pending'
+                    };
+
+                    document.getElementById('displayRefNumber').innerText = serverOrderId;
+                    document.getElementById('displayRefNumberSub').innerText = serverOrderId;
+                    document.getElementById('displayRefTotal').innerText = totalAmountStr;
+                    document.getElementById('paymentDeadlineText').innerText = dates.deadlineText;
+
+                } else {
+                    currentOrderData = {
+                        id: serverOrderId,
+                        type: 'Waitlist Pass',
+                        fulfillment: isDeliverySelected ? 'Home Delivery' : 'Self Pick-Up',
+                        name: name,
+                        phone: phone,
+                        address: address,
+                        notes: notes,
+                        bags: selectedBags,
+                        total: totalAmountStr,
+                        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+                        status: 'On Waitlist'
+                    };
+
+                    document.getElementById('displayWaitNumber').innerText = serverOrderId;
+                    document.getElementById('waitlistBagsCount').innerText = `${selectedBags} ${selectedBags === 1 ? 'bag' : 'bags'}`;
+                    document.getElementById('waitlistName').innerText = name;
+                    document.getElementById('waitlistPhone').innerText = phone;
+                    document.getElementById('waitlistTotal').innerText = totalAmountStr;
+                }
+
+                localOrders.unshift(currentOrderData);
+                localStorage.setItem('avo_orders', JSON.stringify(localOrders));
+                updateBadgeCount();
+
+                goToStep(3);
+
+            } catch (err) {
+                showToast('Network error. Please check your connection.');
+            }
+        }
+
+        // WHATSAPP INTEGRATION WITH EXACT DETAILS & DEADLINE
+        function shareOrderToWhatsApp() {
+            if (!currentOrderData) return;
+            const fulfillmentLine = currentOrderData.fulfillment === 'Home Delivery'
+                ? `*Delivery Address:* ${currentOrderData.address}${currentOrderData.notes ? `\n*Delivery Notes:* ${currentOrderData.notes}` : ''}`
+                : `*Collection:* ${currentOrderData.address}`;
+
+            const text = `Hi Tsumeb Avos! 🥑 I have placed an order.\n\n` +
+                         `*Order Reference:* ${currentOrderData.id}\n` +
+                         `*Customer Name:* ${currentOrderData.name}\n` +
+                         `*Phone:* ${currentOrderData.phone}\n` +
+                         `*Quantity:* ${currentOrderData.bags} Bag(s) (${currentOrderData.bags * 10} avocados)\n` +
+                         `*Method:* ${currentOrderData.fulfillment}\n` +
+                         `*Total Amount Due:* ${currentOrderData.total}\n` +
+                         `${fulfillmentLine}\n` +
+                         `*Batch Date:* Wednesday (${currentOrderData.wednesdayDate})\n` +
+                         `*Payment Deadline:* ${currentOrderData.deadline}\n\n` +
+                         `I will send my proof of payment using reference *${currentOrderData.id}* shortly.`;
+            
+            const encodedText = encodeURIComponent(text);
+            window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`, '_blank');
+        }
+
+        function shareWaitlistToWhatsApp() {
+            if (!currentOrderData) return;
+            const text = `Hi Tsumeb Avos! 🥑 I joined the priority waitlist.\n\n` +
+                         `*Waitlist ID:* ${currentOrderData.id}\n` +
+                         `*Name:* ${currentOrderData.name}\n` +
+                         `*Reserved Bags:* ${currentOrderData.bags} bag(s) (${currentOrderData.fulfillment})\n` +
+                         `*Phone:* ${currentOrderData.phone}\n\n` +
+                         `Please notify me as soon as the next batch is confirmed!`;
+
+            const encodedText = encodeURIComponent(text);
+            window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`, '_blank');
+        }
+
+        // RECENT ORDERS MODAL MANAGEMENT
+        function toggleMyOrdersModal() {
+            const modal = document.getElementById('ordersModal');
+            const list = document.getElementById('ordersList');
+
+            if (modal.classList.contains('hidden')) {
+                // Populate List
+                if (localOrders.length === 0) {
+                    list.innerHTML = `<p class="text-xs text-stone-400 text-center py-6">No previous orders found.</p>`;
+                } else {
+                    list.innerHTML = localOrders.map(ord => `
+                        <div class="p-3 bg-stone-50 rounded-2xl border border-stone-200/80 text-xs space-y-1">
+                            <div class="flex justify-between items-center font-bold text-stone-800">
+                                <span class="font-mono text-avo-700">${ord.id}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] ${ord.type === 'Waitlist Pass' ? 'bg-amber-100 text-amber-800' : 'bg-avo-100 text-avo-800'}">${ord.status}</span>
+                            </div>
+                            <div class="flex justify-between text-stone-500">
+                                <span>${ord.bags} Bag(s) • ${ord.date}</span>
+                                <span class="font-semibold text-stone-700">${ord.total}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function updateBadgeCount() {
+            const badge = document.getElementById('orderBadge');
+            if (localOrders.length > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // RESET APPLICATION FOR NEW ORDER
+        function resetApp() {
+            document.getElementById('customerForm').reset();
+            toggleDeliveryOption(false);
+            updateQuantity(1);
+            document.getElementById('quantityRange').value = 1;
+            goToStep(1);
+        }
+
+        // UTILITY: CLIPBOARD COPY & TOAST NOTIFICATION
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            copyText(text);
+        }
+
+        function copyText(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Copied "${text}" to clipboard!`);
+            } catch (err) {
+                showToast('Failed to copy');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.innerText = message;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>

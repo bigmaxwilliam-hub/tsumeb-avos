@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-stone-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — Tsumeb Avos</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        avo: {
+                            50: '#f4f7f2',
+                            100: '#e5ece0',
+                            200: '#cbdac4',
+                            300: '#a6bf9a',
+                            400: '#7e9f70',
+                            500: '#5a7f4c',
+                            600: '#46643a',
+                            700: '#38502f',
+                            800: '#2d3f27',
+                            900: '#1b2818',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['Playfair Display', 'Georgia', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+</head>
+<body class="h-full text-stone-800 font-sans antialiased flex flex-col justify-between selection:bg-avo-200 selection:text-avo-900">
+
+    <!-- Header Navigation -->
+    <header class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 bg-avo-600 rounded-lg flex items-center justify-center text-stone-50 shadow-sm">
+                    <i class="fa-solid fa-lock text-sm"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-serif font-bold tracking-tight text-stone-900 leading-none">Tsumeb Avos Admin</h1>
+                    <p class="text-[11px] text-stone-500 font-medium">Order Management Dashboard</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <a href="/api/admin/orders.csv" class="bg-avo-600 hover:bg-avo-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-file-arrow-down text-xs"></i>
+                    <span>Download CSV</span>
+                </a>
+                <button onclick="loadOrders()" class="bg-stone-100 hover:bg-stone-200 text-stone-700 p-2 rounded-xl text-xs font-semibold transition" title="Refresh Orders">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-6xl mx-auto w-full px-4 py-6 flex-1 flex flex-col space-y-4">
+
+        <!-- Stats Overview Bar -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
+                <div class="text-[11px] font-bold text-stone-400 uppercase tracking-wider">Total Orders</div>
+                <div id="statTotal" class="text-2xl font-serif font-bold text-stone-900">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
+                <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wider">New Orders</div>
+                <div id="statNew" class="text-2xl font-serif font-bold text-amber-600">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
+                <div class="text-[11px] font-bold text-avo-700 uppercase tracking-wider">Paid Orders</div>
+                <div id="statPaid" class="text-2xl font-serif font-bold text-avo-700">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
+                <div class="text-[11px] font-bold text-stone-500 uppercase tracking-wider">Delivered</div>
+                <div id="statDelivered" class="text-2xl font-serif font-bold text-stone-700">0</div>
+            </div>
+        </div>
+
+        <!-- Orders Table Card -->
+        <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden flex-1 flex flex-col">
+            <div class="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
+                <h2 class="text-sm font-serif font-bold text-stone-900">All Orders (Newest First)</h2>
+                <span id="orderCountBadge" class="text-xs bg-stone-200 text-stone-700 font-semibold px-2.5 py-0.5 rounded-full">0 orders</span>
+            </div>
+
+            <div class="overflow-x-auto flex-1">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-stone-50 text-stone-500 font-semibold border-b border-stone-200 text-[11px] uppercase tracking-wider">
+                            <th class="p-3">ID</th>
+                            <th class="p-3">Date (UTC)</th>
+                            <th class="p-3">Customer</th>
+                            <th class="p-3">Phone</th>
+                            <th class="p-3">Qty</th>
+                            <th class="p-3">Notes / Address</th>
+                            <th class="p-3">Status</th>
+                            <th class="p-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody" class="divide-y divide-stone-100 text-stone-700">
+                        <tr>
+                            <td colspan="8" class="text-center py-12 text-stone-400">Loading orders...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Compact Footer -->
+    <footer class="py-3 text-center text-[11px] text-stone-400 border-t border-stone-200 bg-white">
+        <p>© 2026 Tsumeb Avos • Admin Portal</p>
+    </footer>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center space-x-2 z-50 opacity-0 pointer-events-none transition-all duration-300">
+        <i class="fa-solid fa-circle-check text-avo-400"></i>
+        <span id="toastMsg">Success!</span>
+    </div>
+
+    <!-- ADMIN LOGIC JS -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            loadOrders();
+        });
+
+        // FETCH ORDERS FROM API
+        async function loadOrders() {
+            try {
+                const response = await fetch('/api/admin/orders');
+                if (response.status === 401) {
+                    // Prompted via browser Basic Auth challenge or show warning
+                    document.getElementById('ordersTableBody').innerHTML = `
+                        <tr><td colspan="8" class="text-center py-12 text-red-600 font-semibold">
+                            Unauthorized. Please refresh or log in with admin password.
+                        </td></tr>`;
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch orders');
+                }
+
+                const orders = await response.json();
+                renderOrders(orders);
+            } catch (err) {
+                document.getElementById('ordersTableBody').innerHTML = `
+                    <tr><td colspan="8" class="text-center py-12 text-red-600">
+                        Error loading orders from database.
+                    </td></tr>`;
+            }
+        }
+
+        // RENDER ORDERS TABLE & STATS
+        function renderOrders(orders) {
+            const tbody = document.getElementById('ordersTableBody');
+            document.getElementById('statTotal').innerText = orders.length;
+            document.getElementById('orderCountBadge').innerText = `${orders.length} ${orders.length === 1 ? 'order' : 'orders'}`;
+
+            let newCount = 0;
+            let paidCount = 0;
+            let deliveredCount = 0;
+
+            orders.forEach(o => {
+                const st = (o.status || 'new').toLowerCase();
+                if (st === 'new') newCount++;
+                else if (st === 'paid') paidCount++;
+                else if (st === 'delivered') deliveredCount++;
+            });
+
+            document.getElementById('statNew').innerText = newCount;
+            document.getElementById('statPaid').innerText = paidCount;
+            document.getElementById('statDelivered').innerText = deliveredCount;
+
+            if (orders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-stone-400">No orders found in database yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = orders.map(ord => {
+                const st = (ord.status || 'new').toLowerCase();
+                let statusBadge = '';
+                if (st === 'new') {
+                    statusBadge = `<span class="bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full text-[10px]">New</span>`;
+                } else if (st === 'paid') {
+                    statusBadge = `<span class="bg-avo-100 text-avo-800 font-semibold px-2 py-0.5 rounded-full text-[10px]">Paid</span>`;
+                } else if (st === 'delivered') {
+                    statusBadge = `<span class="bg-stone-200 text-stone-700 font-semibold px-2 py-0.5 rounded-full text-[10px]">Delivered</span>`;
+                }
+
+                return `
+                    <tr class="hover:bg-stone-50/80 transition">
+                        <td class="p-3 font-mono font-bold text-avo-800">#${ord.id}</td>
+                        <td class="p-3 text-stone-500 whitespace-nowrap">${ord.created_at ? ord.created_at.replace('T', ' ').substring(0, 16) : '-'}</td>
+                        <td class="p-3 font-semibold text-stone-900">${escapeHtml(ord.name)}</td>
+                        <td class="p-3 font-mono text-stone-600">${escapeHtml(ord.phone)}</td>
+                        <td class="p-3 font-bold text-stone-800">${ord.quantity}</td>
+                        <td class="p-3 text-stone-600 max-w-xs truncate" title="${escapeHtml(ord.note || '')}">${escapeHtml(ord.note || '-')}</td>
+                        <td class="p-3">${statusBadge}</td>
+                        <td class="p-3 text-right space-x-1 whitespace-nowrap">
+                            <button onclick="updateStatus(${ord.id}, 'paid')" class="bg-avo-50 hover:bg-avo-100 text-avo-800 border border-avo-200 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition">
+                                Paid
+                            </button>
+                            <button onclick="updateStatus(${ord.id}, 'delivered')" class="bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition">
+                                Delivered
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // UPDATE ORDER STATUS API CALL
+        async function updateStatus(orderId, newStatus) {
+            try {
+                const response = await fetch(`/api/admin/orders/${orderId}/status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    showToast(result.error || 'Failed to update status.');
+                    return;
+                }
+
+                showToast(`Order #${orderId} marked as ${newStatus}`);
+                loadOrders();
+            } catch (err) {
+                showToast('Network error while updating status.');
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.innerText = message;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
