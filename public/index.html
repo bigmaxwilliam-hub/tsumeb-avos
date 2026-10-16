@@ -332,7 +332,7 @@
             </div>
 
             <!-- Payment Method Selector (EFT vs FNB eWallet) -->
-            <div class="bg-white rounded-2xl border border-stone-200/80 p-3 shadow-sm space-y-1.5">
+            <div class="bg-white rounded-2xl border border-stone-200/80 p-3 shadow-sm space-y-2">
                 <div class="text-[10px] font-bold text-stone-500 uppercase tracking-wider text-center">Choose Payment Method</div>
                 <div class="flex rounded-lg bg-stone-100 p-0.5">
                     <button id="payTabEft" onclick="switchPaymentTab('eft')" class="flex-1 py-2 rounded-md text-xs font-bold transition-all bg-white text-stone-900 shadow-sm">
@@ -342,6 +342,9 @@
                         <i class="fa-solid fa-mobile-screen-button mr-1"></i> FNB eWallet
                     </button>
                 </div>
+                <p class="text-[11px] text-stone-600 text-center pt-0.5">
+                    <i class="fa-brands fa-whatsapp text-emerald-600 mr-1"></i>Please send us a WhatsApp message below to receive the payment details.
+                </p>
             </div>
 
             <div class="flex items-center space-x-2 pt-0.5">
@@ -350,7 +353,7 @@
                 </button>
                 <button onclick="shareOrderToWhatsApp()" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-semibold shadow-md transition flex items-center justify-center space-x-1.5 text-xs">
                     <i class="fa-brands fa-whatsapp text-base"></i>
-                    <span>Send Proof via WhatsApp</span>
+                    <span>Send WhatsApp for Payment Details</span>
                 </button>
             </div>
         </section>
