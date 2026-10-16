@@ -331,53 +331,16 @@
                 </div>
             </div>
 
-            <!-- Payment Methods Toggle (EFT vs FNB eWallet) -->
-            <div class="bg-white rounded-2xl border border-stone-200/80 p-3 shadow-sm space-y-2.5">
+            <!-- Payment Method Selector (EFT vs FNB eWallet) -->
+            <div class="bg-white rounded-2xl border border-stone-200/80 p-3 shadow-sm space-y-1.5">
+                <div class="text-[10px] font-bold text-stone-500 uppercase tracking-wider text-center">Choose Payment Method</div>
                 <div class="flex rounded-lg bg-stone-100 p-0.5">
-                    <button id="payTabEft" onclick="switchPaymentTab('eft')" class="flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all bg-white text-stone-900 shadow-sm">
+                    <button id="payTabEft" onclick="switchPaymentTab('eft')" class="flex-1 py-2 rounded-md text-xs font-bold transition-all bg-white text-stone-900 shadow-sm">
                         <i class="fa-solid fa-building-columns mr-1"></i> Bank EFT
                     </button>
-                    <button id="payTabWallet" onclick="switchPaymentTab('wallet')" class="flex-1 py-1.5 rounded-md text-[11px] font-bold text-stone-500 transition-all">
+                    <button id="payTabWallet" onclick="switchPaymentTab('wallet')" class="flex-1 py-2 rounded-md text-xs font-bold text-stone-500 transition-all">
                         <i class="fa-solid fa-mobile-screen-button mr-1"></i> FNB eWallet
                     </button>
-                </div>
-
-                <!-- EFT Payment Details -->
-                <div id="eftDetails" class="text-[11px]">
-                    <div class="p-2.5 bg-stone-50 rounded-xl space-y-1.5 border border-stone-100">
-                        <div class="flex justify-between">
-                            <span class="text-stone-500">Bank</span>
-                            <span class="font-semibold text-stone-800">FNB Namibia (Branch: 280172)</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-stone-500">Account Name</span>
-                            <span class="font-semibold text-stone-800">Tsumeb Avos</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-stone-500">Account Number</span>
-                            <div class="flex items-center space-x-1">
-                                <span id="bankAccNo" class="font-mono font-semibold text-stone-800">62849201948</span>
-                                <button onclick="copyText('62849201948')" class="text-stone-400 hover:text-stone-700 ml-1"><i class="fa-regular fa-copy"></i></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- eWallet Payment Details -->
-                <div id="walletDetails" class="text-[11px] hidden">
-                    <div class="p-2.5 bg-stone-50 rounded-xl space-y-1.5 border border-stone-100">
-                        <div class="flex justify-between">
-                            <span class="text-stone-500">Send FNB eWallet To</span>
-                            <div class="flex items-center space-x-1">
-                                <span id="walletNo" class="font-mono font-semibold text-stone-800">+264 81 640 6797</span>
-                                <button onclick="copyText('+264816406797')" class="text-stone-400 hover:text-stone-700 ml-1"><i class="fa-regular fa-copy"></i></button>
-                            </div>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-stone-500">Accepted Service</span>
-                            <span class="font-semibold text-stone-800">FNB eWallet</span>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -484,6 +447,7 @@
         // APP STATE
         let isDeliveryConfirmed = true; 
         let isDeliverySelected = false; // Controlled by checkbox on Step 1
+        let selectedPaymentMethod = 'Bank EFT';
         let currentStep = 1;
         let selectedBags = 1;
         let currentOrderData = null;
@@ -742,23 +706,19 @@
             window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         }
 
-        // switchPaymentTab helper for EFT / eWallet tabs
+        // switchPaymentTab helper for EFT / eWallet selection
         function switchPaymentTab(tab) {
             const tabEft = document.getElementById('payTabEft');
             const tabWallet = document.getElementById('payTabWallet');
-            const eftDetails = document.getElementById('eftDetails');
-            const walletDetails = document.getElementById('walletDetails');
 
             if (tab === 'eft') {
-                tabEft.className = "flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all bg-white text-stone-900 shadow-sm";
-                tabWallet.className = "flex-1 py-1.5 rounded-md text-[11px] font-bold text-stone-500 transition-all";
-                eftDetails.classList.remove('hidden');
-                walletDetails.classList.add('hidden');
+                selectedPaymentMethod = 'Bank EFT';
+                tabEft.className = "flex-1 py-2 rounded-md text-xs font-bold transition-all bg-white text-stone-900 shadow-sm";
+                tabWallet.className = "flex-1 py-2 rounded-md text-xs font-bold text-stone-500 transition-all";
             } else {
-                tabWallet.className = "flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all bg-white text-stone-900 shadow-sm";
-                tabEft.className = "flex-1 py-1.5 rounded-md text-[11px] font-bold text-stone-500 transition-all";
-                walletDetails.classList.remove('hidden');
-                eftDetails.classList.add('hidden');
+                selectedPaymentMethod = 'FNB eWallet';
+                tabWallet.className = "flex-1 py-2 rounded-md text-xs font-bold transition-all bg-white text-stone-900 shadow-sm";
+                tabEft.className = "flex-1 py-2 rounded-md text-xs font-bold text-stone-500 transition-all";
             }
         }
 
@@ -973,10 +933,10 @@
             }
         }
 
-        // WHATSAPP INTEGRATION (REFERENCE NUMBER & PHONE NUMBER ONLY)
+        // WHATSAPP INTEGRATION (REFERENCE NUMBER, PHONE NUMBER & PAYMENT METHOD)
         function shareOrderToWhatsApp() {
             if (!currentOrderData) return;
-            const text = `Reference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}`;
+            const text = `Reference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}\nPayment Method: ${selectedPaymentMethod}`;
             const encodedText = encodeURIComponent(text);
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`, '_blank');
         }
