@@ -936,17 +936,17 @@
             }
         }
 
-        // WHATSAPP INTEGRATION (REFERENCE NUMBER, PHONE NUMBER & PAYMENT METHOD)
+        // WHATSAPP INTEGRATION (GREETING + REFERENCE NUMBER, PHONE NUMBER & PAYMENT METHOD)
         function shareOrderToWhatsApp() {
             if (!currentOrderData) return;
-            const text = `Reference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}\nPayment Method: ${selectedPaymentMethod}`;
+            const text = `Hi Tsumeb Avos! 🥑\n\nHere are my order details:\nReference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}\nPayment Method: ${selectedPaymentMethod}\n\nPlease send me the payment details. Thank you!`;
             const encodedText = encodeURIComponent(text);
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`, '_blank');
         }
 
         function shareWaitlistToWhatsApp() {
             if (!currentOrderData) return;
-            const text = `Reference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}`;
+            const text = `Hi Tsumeb Avos! 🥑\n\nHere are my order details:\nReference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}\n\nThank you!`;
             const encodedText = encodeURIComponent(text);
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`, '_blank');
         }
