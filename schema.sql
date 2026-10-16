@@ -7,3 +7,9 @@ CREATE TABLE IF NOT EXISTS orders (
   note TEXT,
   status TEXT DEFAULT 'new'
 );
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+

@@ -105,6 +105,22 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
+    // 0. GET /api/status: Public endpoint to check if store is Open or on Waitlist
+    if (path === '/api/status' && method === 'GET') {
+      try {
+        await env.DB.prepare(
+          'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)'
+        ).run();
+        const row = await env.DB.prepare(
+          "SELECT value FROM settings WHERE key = 'store_mode'"
+        ).first();
+        const mode = row && row.value === 'waitlist' ? 'waitlist' : 'open';
+        return Response.json({ mode, isDeliveryConfirmed: mode === 'open' });
+      } catch (err) {
+        return Response.json({ mode: 'open', isDeliveryConfirmed: true });
+      }
+    }
+
     // 1. POST /api/orders: Create new avocado order
     if (path === '/api/orders' && method === 'POST') {
       try {
@@ -159,6 +175,23 @@ export default {
     if (path.startsWith('/admin') || path.startsWith('/api/admin')) {
       if (!checkBasicAuth(request, env)) {
         return unauthorizedResponse();
+      }
+
+      // POST /api/admin/status: Admin-only toggle between 'open' and 'waitlist'
+      if (path === '/api/admin/status' && method === 'POST') {
+        try {
+          const body = await request.json();
+          const mode = body.mode === 'waitlist' || body.isDeliveryConfirmed === false ? 'waitlist' : 'open';
+          await env.DB.prepare(
+            'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)'
+          ).run();
+          await env.DB.prepare(
+            "INSERT INTO settings (key, value) VALUES ('store_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+          ).bind(mode).run();
+          return Response.json({ success: true, mode, isDeliveryConfirmed: mode === 'open' });
+        } catch (err) {
+          return Response.json({ error: 'Failed to update store status.' }, { status: 500 });
+        }
       }
 
       // GET /api/admin/orders: Get all orders newest first

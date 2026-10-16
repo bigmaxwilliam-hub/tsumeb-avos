@@ -55,6 +55,16 @@
             </div>
             
             <div class="flex items-center space-x-3">
+                <!-- Admin-Only Store Mode Toggle (Open vs Waitlist) -->
+                <div class="flex items-center space-x-1 bg-stone-100 p-1 rounded-full border border-stone-200">
+                    <button id="adminToggleOpenBtn" onclick="setStoreStatus(true)" class="px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 bg-avo-600 text-white shadow-sm">
+                        <i class="fa-solid fa-truck-fast mr-1"></i> Open
+                    </button>
+                    <button id="adminToggleWaitlistBtn" onclick="setStoreStatus(false)" class="px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 text-stone-500 hover:text-stone-800">
+                        <i class="fa-solid fa-hourglass-half mr-1"></i> Waitlist
+                    </button>
+                </div>
+
                 <a href="/api/admin/orders.csv" class="bg-avo-600 hover:bg-avo-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition flex items-center space-x-1.5">
                     <i class="fa-solid fa-file-arrow-down text-xs"></i>
                     <span>Download CSV</span>
@@ -134,8 +144,54 @@
     <!-- ADMIN LOGIC JS -->
     <script>
         window.addEventListener('DOMContentLoaded', () => {
+            loadStoreStatus();
             loadOrders();
         });
+
+        // RENDER ADMIN STORE STATUS TOGGLE BUTTONS
+        function renderStoreStatusToggle(isOpen) {
+            const btnOpen = document.getElementById('adminToggleOpenBtn');
+            const btnWait = document.getElementById('adminToggleWaitlistBtn');
+            if (isOpen) {
+                btnOpen.className = "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 bg-avo-600 text-white shadow-sm";
+                btnWait.className = "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 text-stone-500 hover:text-stone-800";
+            } else {
+                btnWait.className = "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 bg-amber-600 text-white shadow-sm";
+                btnOpen.className = "px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 text-stone-500 hover:text-stone-800";
+            }
+        }
+
+        // LOAD STORE MODE (OPEN vs WAITLIST)
+        async function loadStoreStatus() {
+            try {
+                const res = await fetch('/api/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    renderStoreStatusToggle(Boolean(data.isDeliveryConfirmed));
+                }
+            } catch (err) {
+                // Keep default UI on error
+            }
+        }
+
+        // UPDATE STORE MODE (OPEN vs WAITLIST) FROM ADMIN DASHBOARD
+        async function setStoreStatus(isOpen) {
+            try {
+                const res = await fetch('/api/admin/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: isOpen ? 'open' : 'waitlist', isDeliveryConfirmed: isOpen })
+                });
+                if (!res.ok) {
+                    showToast('Failed to update store mode.');
+                    return;
+                }
+                renderStoreStatusToggle(isOpen);
+                showToast(isOpen ? 'Public site set to: Open for Orders' : 'Public site set to: Priority Waitlist');
+            } catch (err) {
+                showToast('Network error updating store mode.');
+            }
+        }
 
         // FETCH ORDERS FROM API
         async function loadOrders() {

@@ -83,21 +83,13 @@
 </head>
 <body class="h-full text-stone-800 font-sans antialiased flex flex-col justify-between selection:bg-avo-200 selection:text-avo-900">
 
-    <!-- Top Operational Status Bar (Demo Toggle for Testing Both States) -->
+    <!-- Top Operational Status Bar (Read-only for customers; controlled via Admin Dashboard) -->
     <div class="bg-stone-900 text-stone-300 text-[11px] py-1.5 px-3 shadow-inner">
-        <div class="max-w-md mx-auto flex items-center justify-between">
+        <div class="max-w-md mx-auto flex items-center justify-center">
             <span class="flex items-center space-x-1.5 font-medium">
                 <span class="inline-block w-2 h-2 rounded-full animate-pulse" id="statusIndicatorDot"></span>
                 <span id="statusIndicatorText">Delivery Status</span>
             </span>
-            <div class="flex items-center space-x-1 bg-stone-800 p-0.5 rounded-full border border-stone-700">
-                <button id="toggleConfirmedBtn" onclick="setDeliveryStatus(true)" class="px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200">
-                    <i class="fa-solid fa-truck-fast mr-1"></i> Open
-                </button>
-                <button id="toggleWaitlistBtn" onclick="setDeliveryStatus(false)" class="px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200">
-                    <i class="fa-solid fa-hourglass-half mr-1"></i> Waitlist
-                </button>
-            </div>
         </div>
     </div>
 
@@ -144,7 +136,7 @@
         <section id="step1" class="step-card space-y-2.5">
             <div class="flex items-baseline justify-between px-0.5">
                 <h2 class="text-lg font-serif font-bold text-stone-900">How many bags?</h2>
-                <p class="text-[11px] text-stone-500"><span class="font-semibold text-stone-700">10 avos/bag</span> • N$120</p>
+                <p class="text-[11px] text-stone-500"><span class="font-semibold text-stone-700">10 avos/bag</span> • N$150 (N$15/avo)</p>
             </div>
 
             <!-- Unified Interactive Mound & Slider Card -->
@@ -153,7 +145,7 @@
                 <div class="bg-gradient-to-b from-stone-100 to-stone-200/50 px-4 pt-2 pb-2.5 text-center relative border-b border-stone-200/50">
                     <div class="flex justify-between items-center relative z-20">
                         <span class="text-[10px] text-stone-600 font-semibold bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-full border border-stone-200/60" id="deliveryScheduleTag">Wednesday Batch</span>
-                        <span class="bg-avo-900 text-stone-100 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full tracking-wider">N$120 / Bag</span>
+                        <span class="bg-avo-900 text-stone-100 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full tracking-wider">N$150 / Bag</span>
                     </div>
                     
                     <div class="flex justify-center items-end h-[88px] relative" id="avoBagDisplay">
@@ -199,8 +191,8 @@
                 <!-- Pricing Breakdown -->
                 <div class="p-3 space-y-1 text-xs">
                     <div class="flex justify-between text-stone-500">
-                        <span>Subtotal (<span id="summaryBags">1</span> × N$120)</span>
-                        <span id="subtotalPrice" class="font-medium text-stone-700">N$120</span>
+                        <span>Subtotal (<span id="summaryBags">1</span> × N$150)</span>
+                        <span id="subtotalPrice" class="font-medium text-stone-700">N$150</span>
                     </div>
                     <div id="deliveryFeeRow" class="flex justify-between text-stone-500 hidden">
                         <span>Fixed Delivery Fee</span>
@@ -212,7 +204,7 @@
                     </div>
                     <div class="border-t border-stone-100 pt-1.5 flex justify-between items-baseline font-bold text-stone-900">
                         <span class="text-xs">Total Amount</span>
-                        <span id="totalPrice" class="text-avo-700 text-base">N$120</span>
+                        <span id="totalPrice" class="text-avo-700 text-base">N$150</span>
                     </div>
                 </div>
             </div>
@@ -478,7 +470,7 @@
     <!-- APPLICATION LOGIC JS -->
     <script>
         // CONFIGURATION & EXACT PRICING CONSTANTS
-        const PRICE_PER_BAG = 120; // N$120 per bag (10 x N$12)
+        const PRICE_PER_BAG = 150; // N$150 per bag (10 x N$15)
         const FIXED_DELIVERY_FEE = 50; // N$50 fixed delivery fee
         const PICKUP_ADDRESS = "4 BC Barnes, Klein Windhoek";
         const WHATSAPP_NUMBER = "264816406797"; // +264816406797
@@ -538,12 +530,21 @@
         ];
 
         // INITIALIZATION
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             initMoundDOM();
-            setDeliveryStatus(true); // Default to confirmed Wednesday batch
+            setDeliveryStatus(true); // Default while loading
             toggleDeliveryOption(false); // Default to unticked (Pick-up)
             updateQuantity(1);
             updateBadgeCount();
+            try {
+                const res = await fetch('/api/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    setDeliveryStatus(Boolean(data.isDeliveryConfirmed));
+                }
+            } catch (err) {
+                // Keep default open state if offline
+            }
         });
 
         // INITIALIZE MOUND ELEMENTS ONCE FOR SMOOTH TRANSITIONS
@@ -770,12 +771,10 @@
             };
         }
 
-        // DELIVERY STATUS TOGGLE LOGIC (STATE A vs STATE B)
+        // DELIVERY STATUS DISPLAY LOGIC (STATE A: OPEN vs STATE B: WAITLIST, controlled by Admin)
         function setDeliveryStatus(status) {
             isDeliveryConfirmed = status;
             
-            const btnConfirmed = document.getElementById('toggleConfirmedBtn');
-            const btnWaitlist = document.getElementById('toggleWaitlistBtn');
             const dot = document.getElementById('statusIndicatorDot');
             const text = document.getElementById('statusIndicatorText');
             const banner = document.getElementById('statusBanner');
@@ -785,8 +784,6 @@
             const dates = getPaymentDeadline();
 
             if (isDeliveryConfirmed) {
-                btnConfirmed.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold bg-avo-600 text-white shadow-sm";
-                btnWaitlist.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold text-stone-400 hover:text-stone-200";
                 dot.className = "inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
                 text.innerText = `Next Batch: ${dates.nextWedText}`;
 
@@ -800,10 +797,8 @@
                 submitBtnText.innerText = "Proceed to Payment";
                 step3Title.innerText = "Payment";
             } else {
-                btnWaitlist.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-600 text-white shadow-sm";
-                btnConfirmed.className = "px-2 py-0.5 rounded-full text-[10px] font-semibold text-stone-400 hover:text-stone-200";
                 dot.className = "inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse";
-                text.innerText = "Harvest Pending";
+                text.innerText = "Harvest Pending • Waitlist Open";
 
                 banner.className = "mb-2.5 px-3 py-2 rounded-xl border text-[11px] flex items-center space-x-2.5 bg-amber-50/80 border-amber-200 text-amber-900";
                 banner.innerHTML = `
