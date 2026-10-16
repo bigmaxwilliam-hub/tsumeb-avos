@@ -777,8 +777,24 @@
             window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         }
 
+        // Helper to persist the current Step 3 payment method selection to the backend
+        async function syncOrderPaymentMethod() {
+            if (!currentOrderData || !currentOrderData.dbId) return;
+            currentOrderData.paymentMethod = selectedPaymentMethod;
+            try {
+                await fetch(`/api/orders/${currentOrderData.dbId}/payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    keepalive: true,
+                    body: JSON.stringify({ paymentMethod: selectedPaymentMethod })
+                });
+            } catch (err) {
+                // ignore background sync error
+            }
+        }
+
         // switchPaymentTab helper for EFT / eWallet selection
-        async function switchPaymentTab(tab) {
+        async function switchPaymentTab(tab, shouldSync = true) {
             const tabEft = document.getElementById('payTabEft');
             const tabWallet = document.getElementById('payTabWallet');
 
@@ -792,17 +808,8 @@
                 tabEft.className = "flex-1 py-2 rounded-md text-xs font-bold text-stone-500 transition-all";
             }
 
-            if (currentOrderData && currentOrderData.dbId) {
-                currentOrderData.paymentMethod = selectedPaymentMethod;
-                try {
-                    await fetch(`/api/orders/${currentOrderData.dbId}/payment`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ paymentMethod: selectedPaymentMethod })
-                    });
-                } catch (err) {
-                    // ignore background sync error
-                }
+            if (shouldSync) {
+                await syncOrderPaymentMethod();
             }
         }
 
@@ -941,6 +948,9 @@
                 : '';
             const dates = getPaymentDeadline();
 
+            // Default payment selector on Step 3 to Bank EFT for each new order
+            switchPaymentTab('eft', false);
+
             const totalAmountStr = document.getElementById('totalPrice').innerText;
             const paymentTag = isDeliveryConfirmed ? ` | Payment: ${selectedPaymentMethod}` : '';
             const fullNote = `${address}${notes ? ` | Notes: ${notes}` : ''}${paymentTag}`;
@@ -1039,6 +1049,7 @@
         // WHATSAPP INTEGRATION (GREETING + REFERENCE NUMBER, PHONE NUMBER & PAYMENT METHOD)
         function shareOrderToWhatsApp() {
             if (!currentOrderData) return;
+            syncOrderPaymentMethod();
             const text = `Hi Tsumeb Avos! 🥑\n\nHere are my order details:\nReference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}\nPayment Method: ${selectedPaymentMethod}\n\nPlease send me the payment details. Thank you!`;
             const encodedText = encodeURIComponent(text);
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`, '_blank');
@@ -1091,8 +1102,10 @@
 
         // RESET APPLICATION FOR NEW ORDER
         async function resetApp() {
+            await syncOrderPaymentMethod();
             document.getElementById('customerForm').reset();
             selectPickupLocation('bc_barnes');
+            switchPaymentTab('eft', false);
             toggleDeliveryOption(false);
             updateQuantity(1);
             document.getElementById('quantityRange').value = 1;
