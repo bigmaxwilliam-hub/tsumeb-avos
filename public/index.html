@@ -781,17 +781,40 @@
         async function syncOrderPaymentMethod() {
             if (!currentOrderData || !currentOrderData.dbId) return;
             currentOrderData.paymentMethod = selectedPaymentMethod;
+            localStorage.setItem('avo_orders', JSON.stringify(localOrders));
+            const url = `/api/orders/${currentOrderData.dbId}/payment`;
+            const payload = JSON.stringify({ paymentMethod: selectedPaymentMethod });
             try {
-                await fetch(`/api/orders/${currentOrderData.dbId}/payment`, {
+                await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     keepalive: true,
-                    body: JSON.stringify({ paymentMethod: selectedPaymentMethod })
+                    body: payload
                 });
             } catch (err) {
-                // ignore background sync error
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon(url, payload);
+                }
             }
         }
+
+        // Ensure payment method on Step 3 is saved even if user closes tab or locks phone without clicking WhatsApp
+        window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && currentOrderData && currentOrderData.dbId && navigator.sendBeacon) {
+                navigator.sendBeacon(
+                    `/api/orders/${currentOrderData.dbId}/payment`,
+                    JSON.stringify({ paymentMethod: selectedPaymentMethod })
+                );
+            }
+        });
+        window.addEventListener('pagehide', () => {
+            if (currentOrderData && currentOrderData.dbId && navigator.sendBeacon) {
+                navigator.sendBeacon(
+                    `/api/orders/${currentOrderData.dbId}/payment`,
+                    JSON.stringify({ paymentMethod: selectedPaymentMethod })
+                );
+            }
+        });
 
         // switchPaymentTab helper for EFT / eWallet selection
         async function switchPaymentTab(tab, shouldSync = true) {
@@ -966,6 +989,7 @@
                         name: name,
                         phone: phone,
                         quantity: selectedBags * 10, // store total number of avocados or bags as requested (quantity = number of avocados or bags)
+                        paymentMethod: selectedPaymentMethod,
                         note: fullNote
                     })
                 });

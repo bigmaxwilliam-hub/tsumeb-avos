@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS orders (
   phone TEXT NOT NULL,
   quantity INTEGER NOT NULL,
   note TEXT,
+  payment_method TEXT NOT NULL DEFAULT 'E',
   status TEXT DEFAULT 'new'
 );
 

@@ -202,11 +202,13 @@ export default {
         const createdAt = new Date().toISOString();
         const todayPrefix = createdAt.slice(0, 10); // YYYY-MM-DD
         const status = 'new';
+        const rawPayment = typeof body.paymentMethod === 'string' ? body.paymentMethod : '';
+        const paymentMethodCode = /ewallet|^w$/i.test(rawPayment) ? 'W' : 'E';
 
         const stmt = env.DB.prepare(
-          'INSERT INTO orders (created_at, name, phone, quantity, note, status) VALUES (?, ?, ?, ?, ?, ?)'
+          'INSERT INTO orders (created_at, name, phone, quantity, note, payment_method, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
-        const result = await stmt.bind(createdAt, name, phone, quantity, note, status).run();
+        const result = await stmt.bind(createdAt, name, phone, quantity, note, paymentMethodCode, status).run();
 
         // Get the inserted row id
         const insertedId = result.meta.last_row_id;
@@ -236,6 +238,7 @@ export default {
             success: true,
             id: insertedId,
             ref: ref,
+            paymentMethod: paymentMethodCode,
             wasConfirmedOrder: settings.isDeliveryConfirmed,
             settings: updatedSettings
           },
@@ -246,13 +249,16 @@ export default {
       }
     }
 
-    // 1b. POST /api/orders/:id/payment: Update chosen payment method (Bank EFT or FNB eWallet) for an order
+    // 1b. POST /api/orders/:id/payment: Update chosen payment method (E or W) for an order
     const paymentMatch = path.match(/^\/api\/orders\/(\d+)\/payment$/);
     if (paymentMatch && method === 'POST') {
       const orderId = paymentMatch[1];
       try {
-        const body = await request.json();
-        const paymentMethod = body.paymentMethod === 'FNB eWallet' ? 'FNB eWallet' : 'Bank EFT';
+        const rawText = await request.text();
+        const body = rawText ? JSON.parse(rawText) : {};
+        const isWallet = /ewallet|^w$/i.test(String(body.paymentMethod || ''));
+        const paymentMethod = isWallet ? 'FNB eWallet' : 'Bank EFT';
+        const paymentCode = isWallet ? 'W' : 'E';
 
         const existing = await env.DB.prepare('SELECT note FROM orders WHERE id = ?').bind(orderId).first();
         if (!existing) {
@@ -260,11 +266,14 @@ export default {
         }
 
         const currentNote = existing.note || '';
-        const cleanedNote = currentNote.replace(/\s*\|\s*Payment:\s*(Bank EFT|FNB eWallet)/i, '').trim();
+        const cleanedNote = currentNote.replace(/\s*\|\s*Payment:\s*(Bank EFT|FNB eWallet)/i, '').replace(/^Payment:\s*(Bank EFT|FNB eWallet)/i, '').trim();
         const updatedNote = cleanedNote ? `${cleanedNote} | Payment: ${paymentMethod}` : `Payment: ${paymentMethod}`;
 
-        await env.DB.prepare('UPDATE orders SET note = ? WHERE id = ?').bind(updatedNote, orderId).run();
-        return Response.json({ success: true, id: orderId, paymentMethod });
+        await env.DB.prepare('UPDATE orders SET payment_method = ?, note = ? WHERE id = ?')
+          .bind(paymentCode, updatedNote, orderId)
+          .run();
+
+        return Response.json({ success: true, id: orderId, paymentMethod: paymentCode });
       } catch (err) {
         return Response.json({ error: 'Failed to update payment method.' }, { status: 400 });
       }
@@ -321,7 +330,7 @@ export default {
       if (path === '/api/admin/orders' && method === 'GET') {
         try {
           const { results } = await env.DB.prepare(
-            'SELECT id, created_at, name, phone, quantity, note, status FROM orders ORDER BY id DESC'
+            'SELECT id, created_at, name, phone, quantity, note, payment_method, status FROM orders ORDER BY id DESC'
           ).all();
           return Response.json(attachDailyRefs(results));
         } catch (err) {
@@ -358,15 +367,16 @@ export default {
       if (path === '/api/admin/orders.csv' && method === 'GET') {
         try {
           const { results } = await env.DB.prepare(
-            'SELECT id, created_at, name, phone, quantity, note, status FROM orders ORDER BY id DESC'
+            'SELECT id, created_at, name, phone, quantity, note, payment_method, status FROM orders ORDER BY id DESC'
           ).all();
           const ordersWithRef = attachDailyRefs(results);
 
-          const headers = ['ID', 'Reference', 'Created At (UTC)', 'Name', 'Phone', 'Quantity', 'Note', 'Status'];
+          const headers = ['ID', 'Reference', 'Created At (UTC)', 'Name', 'Phone', 'Quantity', 'Payment', 'Note', 'Status'];
           const csvRows = [headers.join(',')];
 
           for (const row of ordersWithRef) {
             const displayStatus = row.status === 'completed' ? 'Order completed' : row.status;
+            const payCode = row.payment_method === 'W' || /ewallet/i.test(row.note || '') ? 'W' : 'E';
             const values = [
               row.id,
               escapeCsvField(row.ref),
@@ -374,6 +384,7 @@ export default {
               escapeCsvField(row.name),
               escapeCsvField(row.phone),
               row.quantity,
+              escapeCsvField(payCode),
               escapeCsvField(row.note),
               escapeCsvField(displayStatus)
             ];
@@ -393,7 +404,14 @@ export default {
       }
     }
 
-    // 3. Everything else: serve static pages (handled by Cloudflare Workers Assets)
-    return env.ASSETS.fetch(request);
+    // 3. Everything else: serve static pages with no-store cache header so browsers always get latest UI
+    const assetResponse = await env.ASSETS.fetch(request);
+    const headers = new Headers(assetResponse.headers);
+    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return new Response(assetResponse.body, {
+      status: assetResponse.status,
+      statusText: assetResponse.statusText,
+      headers
+    });
   }
 };

@@ -389,16 +389,17 @@
                     statusBadge = `<span class="bg-amber-100 text-amber-800 font-semibold px-2.5 py-0.5 rounded-full text-[10px]">New</span>`;
                 }
 
-                // Extract payment method from note (e.g. "| Payment: Bank EFT" or "| Payment: FNB eWallet")
+                // Determine payment method ('W' for FNB eWallet, 'E' for Bank EFT) from payment_method column or note
                 const rawNote = ord.note || '';
                 const paymentMatch = rawNote.match(/Payment:\s*(Bank EFT|FNB eWallet)/i);
                 const paymentMethod = paymentMatch ? paymentMatch[1] : '';
                 const cleanedNote = rawNote.replace(/\s*\|\s*Payment:\s*(Bank EFT|FNB eWallet)/i, '').replace(/^Payment:\s*(Bank EFT|FNB eWallet)/i, '').trim();
 
-                const isEwallet = /ewallet/i.test(paymentMethod);
+                const isEwallet = ord.payment_method === 'W' || /ewallet/i.test(paymentMethod);
+                const nextPayCode = isEwallet ? 'E' : 'W';
                 const paymentBadge = isEwallet
-                    ? `<span class="font-mono font-bold text-stone-800" title="FNB eWallet">W</span>`
-                    : `<span class="font-mono font-bold text-stone-800" title="Bank EFT">E</span>`;
+                    ? `<button onclick="togglePaymentMethod(${ord.id}, '${nextPayCode}')" class="font-mono font-bold text-stone-800 hover:text-avo-700 px-1.5 py-0.5 rounded hover:bg-stone-100 transition" title="FNB eWallet (click to switch to E)">W</button>`
+                    : `<button onclick="togglePaymentMethod(${ord.id}, '${nextPayCode}')" class="font-mono font-bold text-stone-800 hover:text-avo-700 px-1.5 py-0.5 rounded hover:bg-stone-100 transition" title="Bank EFT (click to switch to W)">E</button>`;
 
                 // Once paid, the order stays paid (button shows ✓ Paid and is disabled).
                 // If not paid yet, clicking Paid transitions 'new' -> 'paid' or 'delivered' -> 'completed'.
@@ -442,6 +443,25 @@
                     </tr>
                 `;
             }).join('');
+        }
+
+        // TOGGLE ORDER PAYMENT METHOD (E <-> W)
+        async function togglePaymentMethod(orderId, newCode) {
+            try {
+                const res = await fetch(`/api/orders/${orderId}/payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paymentMethod: newCode === 'W' ? 'FNB eWallet' : 'Bank EFT' })
+                });
+                if (res.ok) {
+                    showToast(`Order #${orderId} payment set to ${newCode}`);
+                    loadOrders();
+                } else {
+                    showToast('Failed to update payment method.');
+                }
+            } catch (err) {
+                showToast('Network error updating payment method.');
+            }
         }
 
         // UPDATE ORDER STATUS API CALL
