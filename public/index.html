@@ -905,7 +905,8 @@
                     return;
                 }
 
-                const serverOrderId = `#${result.id}`;
+                const baseRef = result.ref || `#${result.id}`;
+                const serverOrderId = isDeliveryConfirmed ? baseRef : `WAIT-${baseRef}`;
 
                 if (isDeliveryConfirmed) {
                     currentOrderData = {

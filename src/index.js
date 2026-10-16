@@ -71,6 +71,34 @@ function escapeCsvField(field) {
   return str;
 }
 
+// Helper to build a daily reference code (e.g., F027 for the 27th order on a Friday)
+function formatDailyRef(isoDateStr, dailyNumber) {
+  const dateObj = new Date(isoDateStr);
+  const dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun, Mon, Tue, Wed, Thu, Fri, Sat
+  const dayLetter = dayLetters[dateObj.getUTCDay()] || 'O';
+  const paddedNumber = String(dailyNumber).padStart(3, '0');
+  return `${dayLetter}${paddedNumber}`;
+}
+
+// Helper to attach daily reference numbers (e.g. F001, F002) to a list of orders
+function attachDailyRefs(orders) {
+  // Sort oldest-first temporarily to count each order's position within its day
+  const sortedAsc = [...orders].sort((a, b) => a.id - b.id);
+  const countsByDate = {};
+  const refById = {};
+
+  for (const order of sortedAsc) {
+    const dayKey = (order.created_at || '').slice(0, 10); // YYYY-MM-DD
+    countsByDate[dayKey] = (countsByDate[dayKey] || 0) + 1;
+    refById[order.id] = formatDailyRef(order.created_at, countsByDate[dayKey]);
+  }
+
+  return orders.map(order => ({
+    ...order,
+    ref: refById[order.id]
+  }));
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -102,6 +130,7 @@ export default {
         }
 
         const createdAt = new Date().toISOString();
+        const todayPrefix = createdAt.slice(0, 10); // YYYY-MM-DD
         const status = 'new';
 
         const stmt = env.DB.prepare(
@@ -112,7 +141,15 @@ export default {
         // Get the inserted row id
         const insertedId = result.meta.last_row_id;
 
-        return Response.json({ success: true, id: insertedId }, { status: 201 });
+        // Count how many orders have been placed today (up to this order) to generate e.g. F027
+        const countRow = await env.DB.prepare(
+          'SELECT COUNT(*) AS count FROM orders WHERE substr(created_at, 1, 10) = ? AND id <= ?'
+        ).bind(todayPrefix, insertedId).first();
+
+        const dailyNumber = countRow && countRow.count ? countRow.count : 1;
+        const ref = formatDailyRef(createdAt, dailyNumber);
+
+        return Response.json({ success: true, id: insertedId, ref: ref }, { status: 201 });
       } catch (err) {
         return Response.json({ error: 'Invalid JSON request or database error.' }, { status: 400 });
       }
@@ -130,13 +167,13 @@ export default {
           const { results } = await env.DB.prepare(
             'SELECT id, created_at, name, phone, quantity, note, status FROM orders ORDER BY id DESC'
           ).all();
-          return Response.json(results);
+          return Response.json(attachDailyRefs(results));
         } catch (err) {
           return Response.json({ error: 'Database error while fetching orders.' }, { status: 500 });
         }
       }
 
-      // POST /api/admin/orders/:id/status: Update order status (new, paid, delivered)
+      // POST /api/admin/orders/:id/status: Update order status (new, paid, delivered, completed)
       const statusMatch = path.match(/^\/api\/admin\/orders\/(\d+)\/status$/);
       if (statusMatch && method === 'POST') {
         const orderId = statusMatch[1];
@@ -144,8 +181,8 @@ export default {
           const body = await request.json();
           const newStatus = typeof body.status === 'string' ? body.status.toLowerCase().trim() : '';
 
-          if (!['new', 'paid', 'delivered'].includes(newStatus)) {
-            return Response.json({ error: 'Invalid status. Allowed values: new, paid, delivered.' }, { status: 400 });
+          if (!['new', 'paid', 'delivered', 'completed'].includes(newStatus)) {
+            return Response.json({ error: 'Invalid status. Allowed values: new, paid, delivered, completed.' }, { status: 400 });
           }
 
           const updateStmt = env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?');
@@ -167,19 +204,22 @@ export default {
           const { results } = await env.DB.prepare(
             'SELECT id, created_at, name, phone, quantity, note, status FROM orders ORDER BY id DESC'
           ).all();
+          const ordersWithRef = attachDailyRefs(results);
 
-          const headers = ['ID', 'Created At (UTC)', 'Name', 'Phone', 'Quantity', 'Note', 'Status'];
+          const headers = ['ID', 'Reference', 'Created At (UTC)', 'Name', 'Phone', 'Quantity', 'Note', 'Status'];
           const csvRows = [headers.join(',')];
 
-          for (const row of results) {
+          for (const row of ordersWithRef) {
+            const displayStatus = row.status === 'completed' ? 'Order completed' : row.status;
             const values = [
               row.id,
+              escapeCsvField(row.ref),
               escapeCsvField(row.created_at),
               escapeCsvField(row.name),
               escapeCsvField(row.phone),
               row.quantity,
               escapeCsvField(row.note),
-              escapeCsvField(row.status)
+              escapeCsvField(displayStatus)
             ];
             csvRows.push(values.join(','));
           }

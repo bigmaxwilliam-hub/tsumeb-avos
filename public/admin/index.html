@@ -84,8 +84,8 @@
                 <div id="statPaid" class="text-2xl font-serif font-bold text-avo-700">0</div>
             </div>
             <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
-                <div class="text-[11px] font-bold text-stone-500 uppercase tracking-wider">Delivered</div>
-                <div id="statDelivered" class="text-2xl font-serif font-bold text-stone-700">0</div>
+                <div class="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Order Completed</div>
+                <div id="statCompleted" class="text-2xl font-serif font-bold text-emerald-700">0</div>
             </div>
         </div>
 
@@ -100,7 +100,7 @@
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="bg-stone-50 text-stone-500 font-semibold border-b border-stone-200 text-[11px] uppercase tracking-wider">
-                            <th class="p-3">ID</th>
+                            <th class="p-3">Ref</th>
                             <th class="p-3">Date (UTC)</th>
                             <th class="p-3">Customer</th>
                             <th class="p-3">Phone</th>
@@ -172,18 +172,18 @@
 
             let newCount = 0;
             let paidCount = 0;
-            let deliveredCount = 0;
+            let completedCount = 0;
 
             orders.forEach(o => {
                 const st = (o.status || 'new').toLowerCase();
-                if (st === 'new') newCount++;
+                if (st === 'new' || st === 'delivered') newCount++;
                 else if (st === 'paid') paidCount++;
-                else if (st === 'delivered') deliveredCount++;
+                else if (st === 'completed') completedCount++;
             });
 
             document.getElementById('statNew').innerText = newCount;
             document.getElementById('statPaid').innerText = paidCount;
-            document.getElementById('statDelivered').innerText = deliveredCount;
+            document.getElementById('statCompleted').innerText = completedCount;
 
             if (orders.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-stone-400">No orders found in database yet.</td></tr>`;
@@ -192,18 +192,48 @@
 
             tbody.innerHTML = orders.map(ord => {
                 const st = (ord.status || 'new').toLowerCase();
+                const isPaid = st === 'paid' || st === 'completed';
+                const isDelivered = st === 'delivered' || st === 'completed';
+
                 let statusBadge = '';
-                if (st === 'new') {
-                    statusBadge = `<span class="bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full text-[10px]">New</span>`;
+                if (st === 'completed') {
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-0.5 rounded-full text-[10px]">Order completed</span>`;
                 } else if (st === 'paid') {
-                    statusBadge = `<span class="bg-avo-100 text-avo-800 font-semibold px-2 py-0.5 rounded-full text-[10px]">Paid</span>`;
+                    statusBadge = `<span class="bg-avo-100 text-avo-800 font-semibold px-2.5 py-0.5 rounded-full text-[10px]">Paid</span>`;
                 } else if (st === 'delivered') {
-                    statusBadge = `<span class="bg-stone-200 text-stone-700 font-semibold px-2 py-0.5 rounded-full text-[10px]">Delivered</span>`;
+                    statusBadge = `<span class="bg-sky-100 text-sky-800 font-semibold px-2.5 py-0.5 rounded-full text-[10px]">Delivered (Unpaid)</span>`;
+                } else {
+                    statusBadge = `<span class="bg-amber-100 text-amber-800 font-semibold px-2.5 py-0.5 rounded-full text-[10px]">New</span>`;
                 }
+
+                // Once paid, the order stays paid (button shows ✓ Paid and is disabled).
+                // If not paid yet, clicking Paid transitions 'new' -> 'paid' or 'delivered' -> 'completed'.
+                const nextPaidStatus = isDelivered ? 'completed' : 'paid';
+                const paidBtnHtml = isPaid
+                    ? `<button disabled class="bg-avo-600 text-white border border-avo-600 px-2.5 py-1 rounded-lg font-semibold text-[11px] opacity-90 cursor-default" title="Order is already marked as paid">
+                           <i class="fa-solid fa-check mr-1 text-[10px]"></i>Paid
+                       </button>`
+                    : `<button onclick="updateStatus(${ord.id}, '${nextPaidStatus}')" class="bg-avo-50 hover:bg-avo-100 text-avo-800 border border-avo-200 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition">
+                           Mark Paid
+                       </button>`;
+
+                // Delivered can be toggled on or off at any time while keeping Paid status intact.
+                const nextDeliveredStatus = isDelivered
+                    ? (isPaid ? 'paid' : 'new')
+                    : (isPaid ? 'completed' : 'delivered');
+                const deliveredBtnHtml = isDelivered
+                    ? `<button onclick="updateStatus(${ord.id}, '${nextDeliveredStatus}')" class="bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition" title="Click to toggle delivered off">
+                           <i class="fa-solid fa-truck mr-1 text-[10px]"></i>Delivered
+                       </button>`
+                    : `<button onclick="updateStatus(${ord.id}, '${nextDeliveredStatus}')" class="bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition" title="Click to mark as delivered">
+                           Delivered
+                       </button>`;
+
+                const displayRef = ord.ref || `#${ord.id}`;
 
                 return `
                     <tr class="hover:bg-stone-50/80 transition">
-                        <td class="p-3 font-mono font-bold text-avo-800">#${ord.id}</td>
+                        <td class="p-3 font-mono font-bold text-avo-800">${escapeHtml(displayRef)} <span class="text-[10px] font-normal text-stone-400">(#${ord.id})</span></td>
                         <td class="p-3 text-stone-500 whitespace-nowrap">${ord.created_at ? ord.created_at.replace('T', ' ').substring(0, 16) : '-'}</td>
                         <td class="p-3 font-semibold text-stone-900">${escapeHtml(ord.name)}</td>
                         <td class="p-3 font-mono text-stone-600">${escapeHtml(ord.phone)}</td>
@@ -211,12 +241,8 @@
                         <td class="p-3 text-stone-600 max-w-xs truncate" title="${escapeHtml(ord.note || '')}">${escapeHtml(ord.note || '-')}</td>
                         <td class="p-3">${statusBadge}</td>
                         <td class="p-3 text-right space-x-1 whitespace-nowrap">
-                            <button onclick="updateStatus(${ord.id}, 'paid')" class="bg-avo-50 hover:bg-avo-100 text-avo-800 border border-avo-200 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition">
-                                Paid
-                            </button>
-                            <button onclick="updateStatus(${ord.id}, 'delivered')" class="bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-300 px-2.5 py-1 rounded-lg font-semibold text-[11px] transition">
-                                Delivered
-                            </button>
+                            ${paidBtnHtml}
+                            ${deliveredBtnHtml}
                         </td>
                     </tr>
                 `;
@@ -240,7 +266,8 @@
                     return;
                 }
 
-                showToast(`Order #${orderId} marked as ${newStatus}`);
+                const label = newStatus === 'completed' ? 'Order completed' : newStatus;
+                showToast(`Order #${orderId} updated to ${label}`);
                 loadOrders();
             } catch (err) {
                 showToast('Network error while updating status.');
