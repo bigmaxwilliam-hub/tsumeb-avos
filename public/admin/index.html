@@ -81,28 +81,42 @@
 
         <!-- Stats Overview Bar -->
         <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
+            <div onclick="switchAdminPage('active')" class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1 cursor-pointer hover:border-avo-400 transition">
                 <div class="text-[11px] font-bold text-stone-400 uppercase tracking-wider">Total Orders</div>
                 <div id="statTotal" class="text-2xl font-serif font-bold text-stone-900">0</div>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
+            <div onclick="switchAdminPage('active')" class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1 cursor-pointer hover:border-amber-400 transition">
                 <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wider">New Orders</div>
                 <div id="statNew" class="text-2xl font-serif font-bold text-amber-600">0</div>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
+            <div onclick="switchAdminPage('active')" class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1 cursor-pointer hover:border-avo-400 transition">
                 <div class="text-[11px] font-bold text-avo-700 uppercase tracking-wider">Paid Orders</div>
                 <div id="statPaid" class="text-2xl font-serif font-bold text-avo-700">0</div>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1">
-                <div class="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Order Completed</div>
+            <div onclick="switchAdminPage('completed')" class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm space-y-1 cursor-pointer hover:border-emerald-400 transition">
+                <div class="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Orders Completed</div>
                 <div id="statCompleted" class="text-2xl font-serif font-bold text-emerald-700">0</div>
             </div>
+        </div>
+
+        <!-- Page Navigation Tabs (Active Orders Page vs Orders Completed Page) -->
+        <div class="flex items-center space-x-2">
+            <button id="pageTabActive" onclick="switchAdminPage('active')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-avo-600 text-white shadow-sm flex items-center space-x-2">
+                <i class="fa-solid fa-clipboard-list"></i>
+                <span>Active Orders</span>
+                <span id="tabBadgeActive" class="bg-avo-800 text-white text-[10px] px-2 py-0.5 rounded-full">0</span>
+            </button>
+            <button id="pageTabCompleted" onclick="switchAdminPage('completed')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white text-stone-600 border border-stone-200 hover:bg-stone-50 flex items-center space-x-2">
+                <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                <span>Orders Completed</span>
+                <span id="tabBadgeCompleted" class="bg-stone-100 text-stone-700 text-[10px] px-2 py-0.5 rounded-full">0</span>
+            </button>
         </div>
 
         <!-- Orders Table Card -->
         <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden flex-1 flex flex-col">
             <div class="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
-                <h2 class="text-sm font-serif font-bold text-stone-900">All Orders (Newest First)</h2>
+                <h2 id="tableSectionTitle" class="text-sm font-serif font-bold text-stone-900">Active Orders (Newest First)</h2>
                 <span id="orderCountBadge" class="text-xs bg-stone-200 text-stone-700 font-semibold px-2.5 py-0.5 rounded-full">0 orders</span>
             </div>
 
@@ -143,10 +157,39 @@
 
     <!-- ADMIN LOGIC JS -->
     <script>
+        let allOrdersCache = [];
+        let currentAdminPage = 'active'; // 'active' or 'completed'
+
         window.addEventListener('DOMContentLoaded', () => {
             loadStoreStatus();
             loadOrders();
         });
+
+        // SWITCH BETWEEN ACTIVE ORDERS PAGE AND ORDERS COMPLETED PAGE
+        function switchAdminPage(page) {
+            currentAdminPage = page;
+            const tabActive = document.getElementById('pageTabActive');
+            const tabCompleted = document.getElementById('pageTabCompleted');
+            const badgeActive = document.getElementById('tabBadgeActive');
+            const badgeCompleted = document.getElementById('tabBadgeCompleted');
+            const title = document.getElementById('tableSectionTitle');
+
+            if (page === 'completed') {
+                tabCompleted.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-emerald-700 text-white shadow-sm flex items-center space-x-2";
+                badgeCompleted.className = "bg-emerald-900 text-white text-[10px] px-2 py-0.5 rounded-full";
+                tabActive.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white text-stone-600 border border-stone-200 hover:bg-stone-50 flex items-center space-x-2";
+                badgeActive.className = "bg-stone-100 text-stone-700 text-[10px] px-2 py-0.5 rounded-full";
+                title.innerText = "Orders Completed (Paid & Delivered)";
+            } else {
+                tabActive.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-avo-600 text-white shadow-sm flex items-center space-x-2";
+                badgeActive.className = "bg-avo-800 text-white text-[10px] px-2 py-0.5 rounded-full";
+                tabCompleted.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-white text-stone-600 border border-stone-200 hover:bg-stone-50 flex items-center space-x-2";
+                badgeCompleted.className = "bg-stone-100 text-stone-700 text-[10px] px-2 py-0.5 rounded-full";
+                title.innerText = "Active Orders (Newest First)";
+            }
+
+            renderOrders(allOrdersCache);
+        }
 
         // RENDER ADMIN STORE STATUS TOGGLE BUTTONS
         function renderStoreStatusToggle(isOpen) {
@@ -210,8 +253,8 @@
                     throw new Error('Failed to fetch orders');
                 }
 
-                const orders = await response.json();
-                renderOrders(orders);
+                allOrdersCache = await response.json();
+                renderOrders(allOrdersCache);
             } catch (err) {
                 document.getElementById('ordersTableBody').innerHTML = `
                     <tr><td colspan="8" class="text-center py-12 text-red-600">
@@ -224,7 +267,6 @@
         function renderOrders(orders) {
             const tbody = document.getElementById('ordersTableBody');
             document.getElementById('statTotal').innerText = orders.length;
-            document.getElementById('orderCountBadge').innerText = `${orders.length} ${orders.length === 1 ? 'order' : 'orders'}`;
 
             let newCount = 0;
             let paidCount = 0;
@@ -237,16 +279,30 @@
                 else if (st === 'completed') completedCount++;
             });
 
+            const activeCount = newCount + paidCount;
             document.getElementById('statNew').innerText = newCount;
             document.getElementById('statPaid').innerText = paidCount;
             document.getElementById('statCompleted').innerText = completedCount;
+            document.getElementById('tabBadgeActive').innerText = activeCount;
+            document.getElementById('tabBadgeCompleted').innerText = completedCount;
 
-            if (orders.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-stone-400">No orders found in database yet.</td></tr>`;
+            // Filter rows based on which page is open ('active' vs 'completed')
+            const filteredOrders = orders.filter(o => {
+                const st = (o.status || 'new').toLowerCase();
+                return currentAdminPage === 'completed' ? st === 'completed' : st !== 'completed';
+            });
+
+            document.getElementById('orderCountBadge').innerText = `${filteredOrders.length} ${filteredOrders.length === 1 ? 'order' : 'orders'}`;
+
+            if (filteredOrders.length === 0) {
+                const emptyText = currentAdminPage === 'completed'
+                    ? 'No completed orders yet. Orders appear here once marked as both Paid and Delivered.'
+                    : 'No active orders waiting right now.';
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-stone-400">${emptyText}</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = orders.map(ord => {
+            tbody.innerHTML = filteredOrders.map(ord => {
                 const st = (ord.status || 'new').toLowerCase();
                 const isPaid = st === 'paid' || st === 'completed';
                 const isDelivered = st === 'delivered' || st === 'completed';
@@ -322,8 +378,8 @@
                     return;
                 }
 
-                const label = newStatus === 'completed' ? 'Order completed' : newStatus;
-                showToast(`Order #${orderId} updated to ${label}`);
+                const label = newStatus === 'completed' ? 'Moved to Orders Completed' : `Updated to ${newStatus}`;
+                showToast(`Order #${orderId}: ${label}`);
                 loadOrders();
             } catch (err) {
                 showToast('Network error while updating status.');
