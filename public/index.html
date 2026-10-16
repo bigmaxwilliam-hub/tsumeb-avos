@@ -733,21 +733,27 @@
             const dates = getPaymentDeadline();
 
             if (isDeliveryConfirmed) {
-                banner.className = "mb-2.5 px-3 py-2 rounded-xl border text-[11px] flex items-center space-x-2.5 bg-avo-50/80 border-avo-200 text-avo-900";
+                banner.className = "mb-3 p-3 rounded-2xl border-2 flex items-center space-x-3 bg-avo-50 border-avo-300 text-avo-900 shadow-sm";
                 banner.innerHTML = `
-                    <i class="fa-solid fa-truck-ramp-box text-avo-600 text-sm flex-shrink-0"></i>
-                    <div class="leading-tight">
-                        <strong class="font-bold">Wed (${dates.nextWedText}) Batch Open</strong> • Pay by <strong>${dates.deadlineText}</strong>
+                    <div class="w-8 h-8 rounded-xl bg-avo-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <i class="fa-solid fa-calendar-check text-sm"></i>
+                    </div>
+                    <div class="leading-snug">
+                        <div class="text-xs font-extrabold text-stone-900">Next Batch: Wednesday, ${dates.nextWedText}</div>
+                        <div class="text-[11px] text-avo-800">Orders Open • Pay by <strong>${dates.deadlineText}</strong></div>
                     </div>
                 `;
                 submitBtnText.innerText = "Proceed to Payment";
                 step3Title.innerText = "Payment";
             } else {
-                banner.className = "mb-2.5 px-3 py-2 rounded-xl border text-[11px] flex items-center space-x-2.5 bg-amber-50/80 border-amber-200 text-amber-900";
+                banner.className = "mb-3 p-3 rounded-2xl border-2 flex items-center space-x-3 bg-amber-50 border-amber-300 text-amber-900 shadow-sm";
                 banner.innerHTML = `
-                    <i class="fa-solid fa-hourglass-half text-amber-600 text-sm flex-shrink-0"></i>
-                    <div class="leading-tight">
-                        <strong class="font-bold">Batch Full / Pending</strong> • Join priority waitlist (no payment now)
+                    <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <i class="fa-solid fa-hourglass-half text-sm"></i>
+                    </div>
+                    <div class="leading-snug">
+                        <div class="text-xs font-extrabold text-stone-900">Next Batch Pending</div>
+                        <div class="text-[11px] text-amber-800">Join priority waitlist (no payment needed now)</div>
                     </div>
                 `;
                 submitBtnText.innerText = "Join Priority Waitlist";
@@ -775,6 +781,12 @@
         // FORM SUBMISSION & API POST
         async function handleFormSubmit(e) {
             e.preventDefault();
+
+            // Immediately dismiss mobile keyboard when user presses Enter or taps Submit
+            document.querySelectorAll('#customerForm input').forEach(input => input.blur());
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
 
             const name = document.getElementById('custName').value.trim();
             const phoneInput = document.getElementById('custPhone');
