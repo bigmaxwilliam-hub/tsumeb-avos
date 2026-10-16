@@ -973,38 +973,17 @@
             }
         }
 
-        // WHATSAPP INTEGRATION WITH EXACT DETAILS & DEADLINE
+        // WHATSAPP INTEGRATION (REFERENCE NUMBER & PHONE NUMBER ONLY)
         function shareOrderToWhatsApp() {
             if (!currentOrderData) return;
-            const fulfillmentLine = currentOrderData.fulfillment === 'Home Delivery'
-                ? `*Delivery Address:* ${currentOrderData.address}${currentOrderData.notes ? `\n*Delivery Notes:* ${currentOrderData.notes}` : ''}`
-                : `*Collection:* ${currentOrderData.address}`;
-
-            const text = `Hi Tsumeb Avos! 🥑 I have placed an order.\n\n` +
-                         `*Order Reference:* ${currentOrderData.id}\n` +
-                         `*Customer Name:* ${currentOrderData.name}\n` +
-                         `*Phone:* ${currentOrderData.phone}\n` +
-                         `*Quantity:* ${currentOrderData.bags} Bag(s) (${currentOrderData.bags * 10} avocados)\n` +
-                         `*Method:* ${currentOrderData.fulfillment}\n` +
-                         `*Total Amount Due:* ${currentOrderData.total}\n` +
-                         `${fulfillmentLine}\n` +
-                         `*Batch Date:* Wednesday (${currentOrderData.wednesdayDate})\n` +
-                         `*Payment Deadline:* ${currentOrderData.deadline}\n\n` +
-                         `I will send my proof of payment using reference *${currentOrderData.id}* shortly.`;
-            
+            const text = `Reference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}`;
             const encodedText = encodeURIComponent(text);
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`, '_blank');
         }
 
         function shareWaitlistToWhatsApp() {
             if (!currentOrderData) return;
-            const text = `Hi Tsumeb Avos! 🥑 I joined the priority waitlist.\n\n` +
-                         `*Waitlist ID:* ${currentOrderData.id}\n` +
-                         `*Name:* ${currentOrderData.name}\n` +
-                         `*Reserved Bags:* ${currentOrderData.bags} bag(s) (${currentOrderData.fulfillment})\n` +
-                         `*Phone:* ${currentOrderData.phone}\n\n` +
-                         `Please notify me as soon as the next batch is confirmed!`;
-
+            const text = `Reference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}`;
             const encodedText = encodeURIComponent(text);
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`, '_blank');
         }
