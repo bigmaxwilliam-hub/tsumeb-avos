@@ -225,20 +225,43 @@
                     </p>
                 </div>
 
-                <!-- Pick Up Point Information Card (Shown when Delivery is NOT ticked) -->
-                <div id="pickupInfoSection" class="bg-avo-50/90 border border-avo-200 rounded-xl p-3 space-y-1">
-                    <div class="flex items-center space-x-1.5 text-avo-800 font-bold text-[10px] uppercase tracking-wider">
-                        <i class="fa-solid fa-map-pin text-avo-600"></i>
-                        <span>Pick-Up Point Address</span>
-                    </div>
-                    <div class="flex items-center justify-between pt-0.5">
-                        <p class="text-xs font-semibold text-stone-900 leading-snug">
-                            4 BC Barnes, Klein Windhoek
-                        </p>
-                        <button type="button" onclick="copyText('4 BC Barnes, Klein Windhoek')" class="text-avo-700 hover:text-avo-900 bg-white/80 hover:bg-white border border-avo-200 px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center space-x-1 transition" title="Copy Address">
+                <!-- Pick Up Point Selector Card (Shown when Delivery is NOT ticked) -->
+                <div id="pickupInfoSection" class="bg-avo-50/90 border border-avo-200 rounded-xl p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-1.5 text-avo-800 font-bold text-[10px] uppercase tracking-wider">
+                            <i class="fa-solid fa-map-pin text-avo-600"></i>
+                            <span>Select Pick-Up Point *</span>
+                        </div>
+                        <button type="button" onclick="copyText(selectedPickupAddress)" class="text-avo-700 hover:text-avo-900 bg-white/80 hover:bg-white border border-avo-200 px-2 py-0.5 rounded-lg text-[10px] font-semibold flex items-center space-x-1 transition" title="Copy Selected Address">
                             <i class="fa-regular fa-copy"></i>
-                            <span>Copy</span>
+                            <span>Copy Address</span>
                         </button>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <!-- Option 1: 4 BC Barnes -->
+                        <div id="pickupOption_bc_barnes" onclick="selectPickupLocation('bc_barnes')"
+                             class="p-2.5 rounded-lg border-2 border-avo-600 bg-white cursor-pointer transition flex items-start space-x-2.5 select-none">
+                            <div id="pickupRadio_bc_barnes" class="w-4 h-4 rounded-full border-2 border-avo-600 flex items-center justify-center mt-0.5 flex-shrink-0">
+                                <div class="w-2 h-2 rounded-full bg-avo-600"></div>
+                            </div>
+                            <div class="flex-1 text-xs leading-snug">
+                                <div class="font-bold text-stone-900">BC Barnes (Klein Windhoek)</div>
+                                <div class="text-[11px] text-stone-600">4 BC Barnes, Klein Windhoek</div>
+                            </div>
+                        </div>
+
+                        <!-- Option 2: Space Building -->
+                        <div id="pickupOption_space_building" onclick="selectPickupLocation('space_building')"
+                             class="p-2.5 rounded-lg border border-stone-200 bg-white/70 hover:bg-white cursor-pointer transition flex items-start space-x-2.5 select-none">
+                            <div id="pickupRadio_space_building" class="w-4 h-4 rounded-full border-2 border-stone-300 flex items-center justify-center mt-0.5 flex-shrink-0">
+                                <div class="w-2 h-2 rounded-full bg-transparent"></div>
+                            </div>
+                            <div class="flex-1 text-xs leading-snug">
+                                <div class="font-bold text-stone-900">Space Building (Near Maerua)</div>
+                                <div class="text-[11px] text-stone-600">Space Building, Corner of Sir Seretse Khama Str and Thorer Str, near Maerua</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -420,7 +443,10 @@
         // CONFIGURATION & EXACT PRICING CONSTANTS
         const PRICE_PER_BAG = 150; // N$150 per bag (10 x N$15)
         const FIXED_DELIVERY_FEE = 50; // N$50 fixed delivery fee
-        const PICKUP_ADDRESS = "4 BC Barnes, Klein Windhoek";
+        const PICKUP_ADDRESSES = {
+            bc_barnes: "4 BC Barnes, Klein Windhoek",
+            space_building: "Space Building, Corner of Sir Seretse Khama Str and Thorer Str, near Maerua"
+        };
         const WHATSAPP_NUMBER = "264816406797"; // +264816406797
         
         // APP STATE
@@ -430,11 +456,46 @@
         let customPaymentDeadline = '';
         let availableAvos = null;
         let isDeliverySelected = false; // Controlled by checkbox on Step 1
+        let selectedPickupAddress = PICKUP_ADDRESSES.bc_barnes;
         let selectedPaymentMethod = 'Bank EFT';
         let currentStep = 1;
         let selectedBags = 1;
         let currentOrderData = null;
         let localOrders = JSON.parse(localStorage.getItem('avo_orders') || '[]');
+
+        // SELECT PICK-UP LOCATION
+        function selectPickupLocation(key) {
+            selectedPickupAddress = PICKUP_ADDRESSES[key] || PICKUP_ADDRESSES.bc_barnes;
+
+            const optBarnes = document.getElementById('pickupOption_bc_barnes');
+            const radioBarnes = document.getElementById('pickupRadio_bc_barnes');
+            const optSpace = document.getElementById('pickupOption_space_building');
+            const radioSpace = document.getElementById('pickupRadio_space_building');
+
+            if (key === 'space_building') {
+                if (optSpace) optSpace.className = "p-2.5 rounded-lg border-2 border-avo-600 bg-white cursor-pointer transition flex items-start space-x-2.5 select-none";
+                if (radioSpace) {
+                    radioSpace.className = "w-4 h-4 rounded-full border-2 border-avo-600 flex items-center justify-center mt-0.5 flex-shrink-0";
+                    radioSpace.innerHTML = `<div class="w-2 h-2 rounded-full bg-avo-600"></div>`;
+                }
+                if (optBarnes) optBarnes.className = "p-2.5 rounded-lg border border-stone-200 bg-white/70 hover:bg-white cursor-pointer transition flex items-start space-x-2.5 select-none";
+                if (radioBarnes) {
+                    radioBarnes.className = "w-4 h-4 rounded-full border-2 border-stone-300 flex items-center justify-center mt-0.5 flex-shrink-0";
+                    radioBarnes.innerHTML = `<div class="w-2 h-2 rounded-full bg-transparent"></div>`;
+                }
+            } else {
+                if (optBarnes) optBarnes.className = "p-2.5 rounded-lg border-2 border-avo-600 bg-white cursor-pointer transition flex items-start space-x-2.5 select-none";
+                if (radioBarnes) {
+                    radioBarnes.className = "w-4 h-4 rounded-full border-2 border-avo-600 flex items-center justify-center mt-0.5 flex-shrink-0";
+                    radioBarnes.innerHTML = `<div class="w-2 h-2 rounded-full bg-avo-600"></div>`;
+                }
+                if (optSpace) optSpace.className = "p-2.5 rounded-lg border border-stone-200 bg-white/70 hover:bg-white cursor-pointer transition flex items-start space-x-2.5 select-none";
+                if (radioSpace) {
+                    radioSpace.className = "w-4 h-4 rounded-full border-2 border-stone-300 flex items-center justify-center mt-0.5 flex-shrink-0";
+                    radioSpace.innerHTML = `<div class="w-2 h-2 rounded-full bg-transparent"></div>`;
+                }
+            }
+        }
 
         // HELPER TO APPLY STORE SETTINGS FROM /api/status
         function applyStoreStatusData(data) {
@@ -861,7 +922,7 @@
 
             const address = isDeliverySelected 
                 ? addressInput.value.trim() 
-                : `Pick-Up: ${PICKUP_ADDRESS}`;
+                : `Pick-Up: ${selectedPickupAddress}`;
             const notes = isDeliverySelected 
                 ? document.getElementById('custNotes').value.trim() 
                 : '';
@@ -1015,6 +1076,7 @@
         // RESET APPLICATION FOR NEW ORDER
         async function resetApp() {
             document.getElementById('customerForm').reset();
+            selectPickupLocation('bc_barnes');
             toggleDeliveryOption(false);
             updateQuantity(1);
             document.getElementById('quantityRange').value = 1;
