@@ -778,7 +778,7 @@
         }
 
         // switchPaymentTab helper for EFT / eWallet selection
-        function switchPaymentTab(tab) {
+        async function switchPaymentTab(tab) {
             const tabEft = document.getElementById('payTabEft');
             const tabWallet = document.getElementById('payTabWallet');
 
@@ -790,6 +790,19 @@
                 selectedPaymentMethod = 'FNB eWallet';
                 tabWallet.className = "flex-1 py-2 rounded-md text-xs font-bold transition-all bg-white text-stone-900 shadow-sm";
                 tabEft.className = "flex-1 py-2 rounded-md text-xs font-bold text-stone-500 transition-all";
+            }
+
+            if (currentOrderData && currentOrderData.dbId) {
+                currentOrderData.paymentMethod = selectedPaymentMethod;
+                try {
+                    await fetch(`/api/orders/${currentOrderData.dbId}/payment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ paymentMethod: selectedPaymentMethod })
+                    });
+                } catch (err) {
+                    // ignore background sync error
+                }
             }
         }
 
@@ -929,7 +942,8 @@
             const dates = getPaymentDeadline();
 
             const totalAmountStr = document.getElementById('totalPrice').innerText;
-            const fullNote = `${address}${notes ? ` | Notes: ${notes}` : ''}`;
+            const paymentTag = isDeliveryConfirmed ? ` | Payment: ${selectedPaymentMethod}` : '';
+            const fullNote = `${address}${notes ? ` | Notes: ${notes}` : ''}${paymentTag}`;
 
             // Send order to backend API
             try {
@@ -965,9 +979,11 @@
 
                 if (lastOrderWasConfirmed) {
                     currentOrderData = {
+                        dbId: result.id,
                         id: serverOrderId,
                         type: 'Confirmed Order',
                         fulfillment: isDeliverySelected ? 'Home Delivery' : 'Self Pick-Up',
+                        paymentMethod: selectedPaymentMethod,
                         name: name,
                         phone: phone,
                         address: address,

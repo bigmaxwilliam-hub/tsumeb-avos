@@ -246,6 +246,30 @@ export default {
       }
     }
 
+    // 1b. POST /api/orders/:id/payment: Update chosen payment method (Bank EFT or FNB eWallet) for an order
+    const paymentMatch = path.match(/^\/api\/orders\/(\d+)\/payment$/);
+    if (paymentMatch && method === 'POST') {
+      const orderId = paymentMatch[1];
+      try {
+        const body = await request.json();
+        const paymentMethod = body.paymentMethod === 'FNB eWallet' ? 'FNB eWallet' : 'Bank EFT';
+
+        const existing = await env.DB.prepare('SELECT note FROM orders WHERE id = ?').bind(orderId).first();
+        if (!existing) {
+          return Response.json({ error: 'Order not found.' }, { status: 404 });
+        }
+
+        const currentNote = existing.note || '';
+        const cleanedNote = currentNote.replace(/\s*\|\s*Payment:\s*(Bank EFT|FNB eWallet)/i, '').trim();
+        const updatedNote = cleanedNote ? `${cleanedNote} | Payment: ${paymentMethod}` : `Payment: ${paymentMethod}`;
+
+        await env.DB.prepare('UPDATE orders SET note = ? WHERE id = ?').bind(updatedNote, orderId).run();
+        return Response.json({ success: true, id: orderId, paymentMethod });
+      } catch (err) {
+        return Response.json({ error: 'Failed to update payment method.' }, { status: 400 });
+      }
+    }
+
     // 2. Admin API and Pages protection (/admin and /api/admin)
     if (path.startsWith('/admin') || path.startsWith('/api/admin')) {
       if (!checkBasicAuth(request, env)) {
