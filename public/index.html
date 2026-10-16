@@ -151,8 +151,8 @@
 
                     <div class="flex justify-between text-[10px] text-stone-400 font-medium px-0.5">
                         <span>1</span>
-                        <span>8</span>
-                        <span>15</span>
+                        <span id="sliderMidLabel">8</span>
+                        <span id="sliderMaxLabel">15</span>
                     </div>
                 </div>
             </div>
@@ -425,12 +425,46 @@
         
         // APP STATE
         let isDeliveryConfirmed = true; 
+        let lastOrderWasConfirmed = true;
+        let customBatchDate = '';
+        let customPaymentDeadline = '';
+        let availableAvos = null;
         let isDeliverySelected = false; // Controlled by checkbox on Step 1
         let selectedPaymentMethod = 'Bank EFT';
         let currentStep = 1;
         let selectedBags = 1;
         let currentOrderData = null;
         let localOrders = JSON.parse(localStorage.getItem('avo_orders') || '[]');
+
+        // HELPER TO APPLY STORE SETTINGS FROM /api/status
+        function applyStoreStatusData(data) {
+            if (!data) return;
+            customBatchDate = typeof data.batchDate === 'string' ? data.batchDate.trim() : '';
+            customPaymentDeadline = typeof data.paymentDeadline === 'string' ? data.paymentDeadline.trim() : '';
+            availableAvos = (data.availableAvos !== null && data.availableAvos !== undefined) ? parseInt(data.availableAvos, 10) : null;
+            if (Number.isNaN(availableAvos)) availableAvos = null;
+
+            const isOpen = Boolean(data.isDeliveryConfirmed);
+            setDeliveryStatus(isOpen);
+
+            // Adjust slider max bags based on available avocados when store is Open
+            const rangeInput = document.getElementById('quantityRange');
+            const midLabel = document.getElementById('sliderMidLabel');
+            const maxLabel = document.getElementById('sliderMaxLabel');
+            if (rangeInput) {
+                let maxBags = 15;
+                if (isOpen && availableAvos !== null && availableAvos > 0) {
+                    maxBags = Math.min(15, Math.max(1, Math.floor(availableAvos / 10)));
+                }
+                rangeInput.max = maxBags;
+                if (midLabel) midLabel.innerText = maxBags > 2 ? Math.ceil((1 + maxBags) / 2) : '';
+                if (maxLabel) maxLabel.innerText = maxBags;
+                if (selectedBags > maxBags) {
+                    rangeInput.value = maxBags;
+                    updateQuantity(maxBags);
+                }
+            }
+        }
 
         // HELPER TO GENERATE DAILY ORDER REFERENCE (e.g., W001 on Wednesday, F057 on Friday)
         function generateDailyOrderReference(isWaitlist = false) {
@@ -489,7 +523,7 @@
                 const res = await fetch('/api/status');
                 if (res.ok) {
                     const data = await res.json();
-                    setDeliveryStatus(Boolean(data.isDeliveryConfirmed));
+                    applyStoreStatusData(data);
                 }
             } catch (err) {
                 // Keep default open state if offline
@@ -672,7 +706,7 @@
                 s1.className = "flex items-center text-stone-400";
                 s2.className = "flex items-center text-stone-400";
                 
-                if (isDeliveryConfirmed) {
+                if (lastOrderWasConfirmed) {
                     document.getElementById('step3Confirmed').classList.remove('hidden');
                 } else {
                     document.getElementById('step3Waitlist').classList.remove('hidden');
@@ -698,7 +732,7 @@
             }
         }
 
-        // CALCULATE PAYMENT DEADLINE (SATURDAY BEFORE NEXT WEDNESDAY DELIVERY)
+        // CALCULATE PAYMENT DEADLINE (USES ADMIN CUSTOM VALUES OR DEFAULTS TO UPCOMING WEDNESDAY & SATURDAY BEFORE)
         function getPaymentDeadline() {
             const today = new Date();
             const dayOfWeek = today.getDay(); // 0: Sun, 1: Mon, ..., 3: Wed, 6: Sat
@@ -717,8 +751,8 @@
             const satText = saturday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
             return {
-                nextWedText: wedText,
-                deadlineText: `${satText} 11:59 PM`
+                nextWedText: customBatchDate ? customBatchDate : `Wednesday, ${wedText}`,
+                deadlineText: customPaymentDeadline ? customPaymentDeadline : `${satText} 11:59 PM`
             };
         }
 
@@ -731,6 +765,9 @@
             const step3Title = document.getElementById('step3Title');
 
             const dates = getPaymentDeadline();
+            const stockBadge = (availableAvos !== null && availableAvos > 0)
+                ? ` • <strong>${availableAvos} avos left</strong>`
+                : '';
 
             if (isDeliveryConfirmed) {
                 banner.className = "mb-3 p-3 rounded-2xl border-2 flex items-center space-x-3 bg-avo-50 border-avo-300 text-avo-900 shadow-sm";
@@ -739,8 +776,8 @@
                         <i class="fa-solid fa-calendar-check text-sm"></i>
                     </div>
                     <div class="leading-snug">
-                        <div class="text-xs font-extrabold text-stone-900">Next Batch: Wednesday, ${dates.nextWedText}</div>
-                        <div class="text-[11px] text-avo-800">Orders Open • Pay by <strong>${dates.deadlineText}</strong></div>
+                        <div class="text-xs font-extrabold text-stone-900">Next Batch: ${dates.nextWedText}</div>
+                        <div class="text-[11px] text-avo-800">Orders Open • Pay by <strong>${dates.deadlineText}</strong>${stockBadge}</div>
                     </div>
                 `;
                 submitBtnText.innerText = "Proceed to Payment";
@@ -854,10 +891,18 @@
                     return;
                 }
 
-                const baseRef = result.ref || `#${result.id}`;
-                const serverOrderId = isDeliveryConfirmed ? baseRef : `WAIT-${baseRef}`;
+                lastOrderWasConfirmed = result.wasConfirmedOrder !== undefined
+                    ? Boolean(result.wasConfirmedOrder)
+                    : isDeliveryConfirmed;
 
-                if (isDeliveryConfirmed) {
+                if (result.settings) {
+                    applyStoreStatusData(result.settings);
+                }
+
+                const baseRef = result.ref || `#${result.id}`;
+                const serverOrderId = lastOrderWasConfirmed ? baseRef : `WAIT-${baseRef}`;
+
+                if (lastOrderWasConfirmed) {
                     currentOrderData = {
                         id: serverOrderId,
                         type: 'Confirmed Order',
@@ -878,6 +923,7 @@
                     document.getElementById('displayRefNumberSub').innerText = serverOrderId;
                     document.getElementById('displayRefTotal').innerText = totalAmountStr;
                     document.getElementById('paymentDeadlineText').innerText = dates.deadlineText;
+                    document.getElementById('step3Title').innerText = "Payment";
 
                 } else {
                     currentOrderData = {
@@ -899,6 +945,7 @@
                     document.getElementById('waitlistName').innerText = name;
                     document.getElementById('waitlistPhone').innerText = phone;
                     document.getElementById('waitlistTotal').innerText = totalAmountStr;
+                    document.getElementById('step3Title').innerText = "Waitlist";
                 }
 
                 localOrders.unshift(currentOrderData);
@@ -966,11 +1013,20 @@
         }
 
         // RESET APPLICATION FOR NEW ORDER
-        function resetApp() {
+        async function resetApp() {
             document.getElementById('customerForm').reset();
             toggleDeliveryOption(false);
             updateQuantity(1);
             document.getElementById('quantityRange').value = 1;
+            try {
+                const res = await fetch('/api/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    applyStoreStatusData(data);
+                }
+            } catch (err) {
+                // ignore offline error
+            }
             goToStep(1);
         }
 

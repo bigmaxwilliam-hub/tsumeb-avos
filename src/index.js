@@ -99,25 +99,65 @@ function attachDailyRefs(orders) {
   }));
 }
 
+// Helper to read all store settings (mode, batchDate, paymentDeadline, availableAvos) from D1
+async function getStoreSettings(env) {
+  await env.DB.prepare(
+    'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)'
+  ).run();
+  const { results } = await env.DB.prepare('SELECT key, value FROM settings').all();
+  const map = {};
+  for (const row of results || []) {
+    map[row.key] = row.value;
+  }
+
+  let mode = map.store_mode === 'waitlist' ? 'waitlist' : 'open';
+  const batchDate = map.batch_date || '';
+  const paymentDeadline = map.payment_deadline || '';
+  const availableAvos =
+    map.available_avos !== undefined && map.available_avos !== ''
+      ? parseInt(map.available_avos, 10)
+      : null;
+
+  // If a stock limit is set and has reached 0, ensure store is in waitlist mode
+  if (availableAvos !== null && !Number.isNaN(availableAvos) && availableAvos <= 0) {
+    mode = 'waitlist';
+  }
+
+  return {
+    mode,
+    isDeliveryConfirmed: mode === 'open',
+    batchDate,
+    paymentDeadline,
+    availableAvos: Number.isNaN(availableAvos) ? null : availableAvos
+  };
+}
+
+// Helper to save a single setting key/value in D1
+async function setStoreSetting(env, key, value) {
+  await env.DB.prepare(
+    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+  ).bind(key, String(value)).run();
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
 
-    // 0. GET /api/status: Public endpoint to check if store is Open or on Waitlist
+    // 0. GET /api/status: Public endpoint to check store mode, batch dates, and available stock
     if (path === '/api/status' && method === 'GET') {
       try {
-        await env.DB.prepare(
-          'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)'
-        ).run();
-        const row = await env.DB.prepare(
-          "SELECT value FROM settings WHERE key = 'store_mode'"
-        ).first();
-        const mode = row && row.value === 'waitlist' ? 'waitlist' : 'open';
-        return Response.json({ mode, isDeliveryConfirmed: mode === 'open' });
+        const settings = await getStoreSettings(env);
+        return Response.json(settings);
       } catch (err) {
-        return Response.json({ mode: 'open', isDeliveryConfirmed: true });
+        return Response.json({
+          mode: 'open',
+          isDeliveryConfirmed: true,
+          batchDate: '',
+          paymentDeadline: '',
+          availableAvos: null
+        });
       }
     }
 
@@ -145,6 +185,20 @@ export default {
           return Response.json({ error: 'Quantity must be a whole number between 1 and 500.' }, { status: 400 });
         }
 
+        // Check current store settings and stock limit
+        const settings = await getStoreSettings(env);
+        if (settings.isDeliveryConfirmed && settings.availableAvos !== null) {
+          if (quantity > settings.availableAvos) {
+            const bagsLeft = Math.floor(settings.availableAvos / 10);
+            return Response.json(
+              {
+                error: `Only ${settings.availableAvos} avocados (${bagsLeft} ${bagsLeft === 1 ? 'bag' : 'bags'}) are left in this batch.`
+              },
+              { status: 400 }
+            );
+          }
+        }
+
         const createdAt = new Date().toISOString();
         const todayPrefix = createdAt.slice(0, 10); // YYYY-MM-DD
         const status = 'new';
@@ -157,6 +211,16 @@ export default {
         // Get the inserted row id
         const insertedId = result.meta.last_row_id;
 
+        // If store was Open and tracking available avocados, deduct this order's quantity
+        // and automatically switch to waitlist mode if the limit has been reached (0 left)
+        if (settings.isDeliveryConfirmed && settings.availableAvos !== null) {
+          const remaining = Math.max(0, settings.availableAvos - quantity);
+          await setStoreSetting(env, 'available_avos', remaining);
+          if (remaining <= 0) {
+            await setStoreSetting(env, 'store_mode', 'waitlist');
+          }
+        }
+
         // Count how many orders have been placed today (up to this order) to generate e.g. F027
         const countRow = await env.DB.prepare(
           'SELECT COUNT(*) AS count FROM orders WHERE substr(created_at, 1, 10) = ? AND id <= ?'
@@ -165,7 +229,18 @@ export default {
         const dailyNumber = countRow && countRow.count ? countRow.count : 1;
         const ref = formatDailyRef(createdAt, dailyNumber);
 
-        return Response.json({ success: true, id: insertedId, ref: ref }, { status: 201 });
+        const updatedSettings = await getStoreSettings(env);
+
+        return Response.json(
+          {
+            success: true,
+            id: insertedId,
+            ref: ref,
+            wasConfirmedOrder: settings.isDeliveryConfirmed,
+            settings: updatedSettings
+          },
+          { status: 201 }
+        );
       } catch (err) {
         return Response.json({ error: 'Invalid JSON request or database error.' }, { status: 400 });
       }
@@ -177,18 +252,42 @@ export default {
         return unauthorizedResponse();
       }
 
-      // POST /api/admin/status: Admin-only toggle between 'open' and 'waitlist'
+      // POST /api/admin/status: Admin-only endpoint to update mode, batch date, payment deadline, and available avocados
       if (path === '/api/admin/status' && method === 'POST') {
         try {
           const body = await request.json();
-          const mode = body.mode === 'waitlist' || body.isDeliveryConfirmed === false ? 'waitlist' : 'open';
           await env.DB.prepare(
             'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)'
           ).run();
-          await env.DB.prepare(
-            "INSERT INTO settings (key, value) VALUES ('store_mode', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-          ).bind(mode).run();
-          return Response.json({ success: true, mode, isDeliveryConfirmed: mode === 'open' });
+
+          if (typeof body.batchDate === 'string') {
+            await setStoreSetting(env, 'batch_date', body.batchDate.trim());
+          }
+          if (typeof body.paymentDeadline === 'string') {
+            await setStoreSetting(env, 'payment_deadline', body.paymentDeadline.trim());
+          }
+          if (body.availableAvos !== undefined) {
+            const rawAvos = String(body.availableAvos).trim();
+            if (rawAvos === '') {
+              await setStoreSetting(env, 'available_avos', '');
+            } else {
+              const parsedAvos = Math.max(0, parseInt(rawAvos, 10) || 0);
+              await setStoreSetting(env, 'available_avos', parsedAvos);
+              if (parsedAvos <= 0) {
+                await setStoreSetting(env, 'store_mode', 'waitlist');
+              } else if (body.mode === undefined && body.isDeliveryConfirmed === undefined) {
+                // If admin restocked avocados > 0, open the batch automatically
+                await setStoreSetting(env, 'store_mode', 'open');
+              }
+            }
+          }
+          if (body.mode !== undefined || body.isDeliveryConfirmed !== undefined) {
+            const mode = body.mode === 'waitlist' || body.isDeliveryConfirmed === false ? 'waitlist' : 'open';
+            await setStoreSetting(env, 'store_mode', mode);
+          }
+
+          const updated = await getStoreSettings(env);
+          return Response.json({ success: true, ...updated });
         } catch (err) {
           return Response.json({ error: 'Failed to update store status.' }, { status: 500 });
         }
