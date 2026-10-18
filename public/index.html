@@ -379,7 +379,7 @@
                     </button>
                 </div>
                 <p class="text-[11px] text-stone-300 leading-snug">
-                    Spot saved for <strong id="waitlistBagsCount" class="text-white">1 bag</strong> for the upcoming Wednesday batch.
+                    Spot saved for <strong id="waitlistBagsCount" class="text-white">1 bag</strong> for the next batch.
                 </p>
             </div>
 
@@ -450,8 +450,8 @@
         const WHATSAPP_NUMBER = "264816406797"; // +264816406797
         
         // APP STATE
-        let isDeliveryConfirmed = true; 
-        let lastOrderWasConfirmed = true;
+        let isDeliveryConfirmed = false; 
+        let lastOrderWasConfirmed = false;
         let customBatchDate = '';
         let customPaymentDeadline = '';
         let availableAvos = null;
@@ -505,7 +505,8 @@
             availableAvos = (data.availableAvos !== null && data.availableAvos !== undefined) ? parseInt(data.availableAvos, 10) : null;
             if (Number.isNaN(availableAvos)) availableAvos = null;
 
-            const isOpen = Boolean(data.isDeliveryConfirmed);
+            const isWaitlistDate = /^waitlist$/i.test(customBatchDate);
+            const isOpen = Boolean(data.isDeliveryConfirmed) && data.mode !== 'waitlist' && !isWaitlistDate;
             setDeliveryStatus(isOpen);
 
             // Adjust slider max bags based on available avocados when store is Open
@@ -576,18 +577,18 @@
         // INITIALIZATION
         window.addEventListener('DOMContentLoaded', async () => {
             initMoundDOM();
-            setDeliveryStatus(true); // Default while loading
+            setDeliveryStatus(false); // Default to waitlist (no day specified) until /api/status loads
             toggleDeliveryOption(false); // Default to unticked (Pick-up)
             updateQuantity(1);
             updateBadgeCount();
             try {
-                const res = await fetch('/api/status');
+                const res = await fetch('/api/status', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     applyStoreStatusData(data);
                 }
             } catch (err) {
-                // Keep default open state if offline
+                // Keep waitlist state if offline
             }
         });
 
@@ -1143,7 +1144,7 @@
             updateQuantity(1);
             document.getElementById('quantityRange').value = 1;
             try {
-                const res = await fetch('/api/status');
+                const res = await fetch('/api/status', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     applyStoreStatusData(data);

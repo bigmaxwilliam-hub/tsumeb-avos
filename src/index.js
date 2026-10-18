@@ -118,17 +118,18 @@ async function getStoreSettings(env) {
       ? parseInt(map.available_avos, 10)
       : null;
 
-  // If a stock limit is set and has reached 0, ensure store is in waitlist mode
-  if (availableAvos !== null && !Number.isNaN(availableAvos) && availableAvos <= 0) {
+  // If batchDate is explicitly set to "waitlist" or stock has reached 0, ensure store is in waitlist mode
+  if (/^waitlist$/i.test(batchDate.trim()) || (availableAvos !== null && !Number.isNaN(availableAvos) && availableAvos <= 0)) {
     mode = 'waitlist';
   }
 
   return {
     mode,
     isDeliveryConfirmed: mode === 'open',
-    batchDate,
+    batchDate: mode === 'waitlist' ? '' : batchDate,
     paymentDeadline,
-    availableAvos: Number.isNaN(availableAvos) ? null : availableAvos
+    availableAvos: Number.isNaN(availableAvos) ? null : availableAvos,
+    adminBatchDate: batchDate
   };
 }
 
@@ -149,15 +150,22 @@ export default {
     if (path === '/api/status' && method === 'GET') {
       try {
         const settings = await getStoreSettings(env);
-        return Response.json(settings);
-      } catch (err) {
-        return Response.json({
-          mode: 'open',
-          isDeliveryConfirmed: true,
-          batchDate: '',
-          paymentDeadline: '',
-          availableAvos: null
+        return Response.json(settings, {
+          headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
         });
+      } catch (err) {
+        return Response.json(
+          {
+            mode: 'waitlist',
+            isDeliveryConfirmed: false,
+            batchDate: '',
+            paymentDeadline: '',
+            availableAvos: null
+          },
+          {
+            headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+          }
+        );
       }
     }
 
@@ -303,7 +311,11 @@ export default {
           ).run();
 
           if (typeof body.batchDate === 'string') {
-            await setStoreSetting(env, 'batch_date', body.batchDate.trim());
+            const trimmedBatchDate = body.batchDate.trim();
+            await setStoreSetting(env, 'batch_date', trimmedBatchDate);
+            if (/^waitlist$/i.test(trimmedBatchDate)) {
+              await setStoreSetting(env, 'store_mode', 'waitlist');
+            }
           }
           if (typeof body.paymentDeadline === 'string') {
             await setStoreSetting(env, 'payment_deadline', body.paymentDeadline.trim());
@@ -317,9 +329,6 @@ export default {
               await setStoreSetting(env, 'available_avos', parsedAvos);
               if (parsedAvos <= 0) {
                 await setStoreSetting(env, 'store_mode', 'waitlist');
-              } else if (body.mode === undefined && body.isDeliveryConfirmed === undefined) {
-                // If admin restocked avocados > 0, open the batch automatically
-                await setStoreSetting(env, 'store_mode', 'open');
               }
             }
           }

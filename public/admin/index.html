@@ -244,11 +244,12 @@
         // LOAD STORE MODE, BATCH DATES, AND AVAILABLE STOCK
         async function loadStoreStatus() {
             try {
-                const res = await fetch('/api/status');
+                const res = await fetch('/api/status', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     renderStoreStatusToggle(Boolean(data.isDeliveryConfirmed));
-                    document.getElementById('settingBatchDate').value = data.batchDate || '';
+                    document.getElementById('settingBatchDate').value =
+                        data.adminBatchDate !== undefined ? data.adminBatchDate : (data.batchDate || '');
                     document.getElementById('settingPaymentDeadline').value = data.paymentDeadline || '';
                     document.getElementById('settingAvailableAvos').value =
                         data.availableAvos !== null && data.availableAvos !== undefined ? data.availableAvos : '';
