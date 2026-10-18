@@ -338,6 +338,9 @@ export default {
       // GET /api/admin/orders: Get all orders newest first
       if (path === '/api/admin/orders' && method === 'GET') {
         try {
+          await env.DB.prepare(
+            "UPDATE orders SET payment_method = '' WHERE payment_method != '' AND note NOT LIKE '%Payment:%'"
+          ).run();
           const { results } = await env.DB.prepare(
             'SELECT id, created_at, name, phone, quantity, note, payment_method, status FROM orders ORDER BY id DESC'
           ).all();
@@ -375,6 +378,9 @@ export default {
       // GET /api/admin/orders.csv: Download all orders as CSV
       if (path === '/api/admin/orders.csv' && method === 'GET') {
         try {
+          await env.DB.prepare(
+            "UPDATE orders SET payment_method = '' WHERE payment_method != '' AND note NOT LIKE '%Payment:%'"
+          ).run();
           const { results } = await env.DB.prepare(
             'SELECT id, created_at, name, phone, quantity, note, payment_method, status FROM orders ORDER BY id DESC'
           ).all();
