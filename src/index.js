@@ -202,8 +202,8 @@ export default {
         const createdAt = new Date().toISOString();
         const todayPrefix = createdAt.slice(0, 10); // YYYY-MM-DD
         const status = 'new';
-        const rawPayment = typeof body.paymentMethod === 'string' ? body.paymentMethod : '';
-        const paymentMethodCode = /ewallet|^w$/i.test(rawPayment) ? 'W' : 'E';
+        const rawPayment = typeof body.paymentMethod === 'string' ? body.paymentMethod.trim() : '';
+        const paymentMethodCode = /ewallet|^w$/i.test(rawPayment) ? 'W' : (/eft|^e$/i.test(rawPayment) ? 'E' : '');
 
         const stmt = env.DB.prepare(
           'INSERT INTO orders (created_at, name, phone, quantity, note, payment_method, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -249,16 +249,23 @@ export default {
       }
     }
 
-    // 1b. POST /api/orders/:id/payment: Update chosen payment method (E or W) for an order
+    // 1b. POST /api/orders/:id/payment: Save chosen payment method (E or W) selected on the last page
     const paymentMatch = path.match(/^\/api\/orders\/(\d+)\/payment$/);
     if (paymentMatch && method === 'POST') {
       const orderId = paymentMatch[1];
       try {
         const rawText = await request.text();
         const body = rawText ? JSON.parse(rawText) : {};
-        const isWallet = /ewallet|^w$/i.test(String(body.paymentMethod || ''));
-        const paymentMethod = isWallet ? 'FNB eWallet' : 'Bank EFT';
-        const paymentCode = isWallet ? 'W' : 'E';
+        const rawVal = String(body.paymentMethod || '').trim();
+        let paymentCode = '';
+        let paymentLabel = '';
+        if (/ewallet|^w$/i.test(rawVal)) {
+          paymentCode = 'W';
+          paymentLabel = 'FNB eWallet';
+        } else if (/eft|^e$/i.test(rawVal)) {
+          paymentCode = 'E';
+          paymentLabel = 'Bank EFT';
+        }
 
         const existing = await env.DB.prepare('SELECT note FROM orders WHERE id = ?').bind(orderId).first();
         if (!existing) {
@@ -267,7 +274,9 @@ export default {
 
         const currentNote = existing.note || '';
         const cleanedNote = currentNote.replace(/\s*\|\s*Payment:\s*(Bank EFT|FNB eWallet)/i, '').replace(/^Payment:\s*(Bank EFT|FNB eWallet)/i, '').trim();
-        const updatedNote = cleanedNote ? `${cleanedNote} | Payment: ${paymentMethod}` : `Payment: ${paymentMethod}`;
+        const updatedNote = paymentLabel
+          ? (cleanedNote ? `${cleanedNote} | Payment: ${paymentLabel}` : `Payment: ${paymentLabel}`)
+          : cleanedNote;
 
         await env.DB.prepare('UPDATE orders SET payment_method = ?, note = ? WHERE id = ?')
           .bind(paymentCode, updatedNote, orderId)
@@ -371,12 +380,18 @@ export default {
           ).all();
           const ordersWithRef = attachDailyRefs(results);
 
-          const headers = ['ID', 'Reference', 'Created At (UTC)', 'Name', 'Phone', 'Quantity', 'Payment', 'Note', 'Status'];
+          const headers = ['ID', 'Reference', 'Created At (UTC)', 'Name', 'Phone', 'Quantity', 'Total (N$)', 'Payment', 'Note', 'Status'];
           const csvRows = [headers.join(',')];
 
           for (const row of ordersWithRef) {
             const displayStatus = row.status === 'completed' ? 'Order completed' : row.status;
-            const payCode = row.payment_method === 'W' || /ewallet/i.test(row.note || '') ? 'W' : 'E';
+            const rawNote = row.note || '';
+            const cleanedNote = rawNote.replace(/\s*\|\s*Payment:\s*(Bank EFT|FNB eWallet)/i, '').replace(/^Payment:\s*(Bank EFT|FNB eWallet)/i, '').trim();
+            const isPickup = /^Pick-Up:/i.test(cleanedNote);
+            const totalAmount = (Number(row.quantity) || 0) * 15 + (isPickup ? 0 : 50);
+            const payCode = row.payment_method === 'W' || /ewallet/i.test(rawNote)
+              ? 'W'
+              : (row.payment_method === 'E' || /Payment:\s*Bank EFT/i.test(rawNote) ? 'E' : '');
             const values = [
               row.id,
               escapeCsvField(row.ref),
@@ -384,8 +399,9 @@ export default {
               escapeCsvField(row.name),
               escapeCsvField(row.phone),
               row.quantity,
+              escapeCsvField(`N$${totalAmount}`),
               escapeCsvField(payCode),
-              escapeCsvField(row.note),
+              escapeCsvField(cleanedNote),
               escapeCsvField(displayStatus)
             ];
             csvRows.push(values.join(','));

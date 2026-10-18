@@ -332,12 +332,12 @@
 
             <!-- Payment Method Selector (EFT vs FNB eWallet) -->
             <div class="bg-white rounded-2xl border border-stone-200/80 p-3 shadow-sm space-y-2">
-                <div class="text-[10px] font-bold text-stone-500 uppercase tracking-wider text-center">Choose Payment Method</div>
-                <div class="flex rounded-lg bg-stone-100 p-0.5">
-                    <button id="payTabEft" onclick="switchPaymentTab('eft')" class="flex-1 py-2 rounded-md text-xs font-bold transition-all bg-white text-stone-900 shadow-sm">
+                <div class="text-[10px] font-bold text-stone-500 uppercase tracking-wider text-center">Select Your Payment Method</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" id="payTabEft" onclick="switchPaymentTab('eft')" class="py-2.5 px-3 rounded-xl text-xs font-bold transition-all border-2 border-stone-200 bg-stone-50 text-stone-600 hover:border-avo-400">
                         <i class="fa-solid fa-building-columns mr-1"></i> Bank EFT
                     </button>
-                    <button id="payTabWallet" onclick="switchPaymentTab('wallet')" class="flex-1 py-2 rounded-md text-xs font-bold text-stone-500 transition-all">
+                    <button type="button" id="payTabWallet" onclick="switchPaymentTab('wallet')" class="py-2.5 px-3 rounded-xl text-xs font-bold transition-all border-2 border-stone-200 bg-stone-50 text-stone-600 hover:border-avo-400">
                         <i class="fa-solid fa-mobile-screen-button mr-1"></i> FNB eWallet
                     </button>
                 </div>
@@ -457,7 +457,7 @@
         let availableAvos = null;
         let isDeliverySelected = false; // Controlled by checkbox on Step 1
         let selectedPickupAddress = PICKUP_ADDRESSES.bc_barnes;
-        let selectedPaymentMethod = 'Bank EFT';
+        let selectedPaymentMethod = '';
         let currentStep = 1;
         let selectedBags = 1;
         let currentOrderData = null;
@@ -777,9 +777,9 @@
             window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         }
 
-        // Helper to persist the current Step 3 payment method selection to the backend
+        // Helper to persist the current Step 3 payment method selection to the backend (only when a selection was made)
         async function syncOrderPaymentMethod() {
-            if (!currentOrderData || !currentOrderData.dbId) return;
+            if (!currentOrderData || !currentOrderData.dbId || !selectedPaymentMethod) return;
             currentOrderData.paymentMethod = selectedPaymentMethod;
             localStorage.setItem('avo_orders', JSON.stringify(localOrders));
             const url = `/api/orders/${currentOrderData.dbId}/payment`;
@@ -800,7 +800,7 @@
 
         // Ensure payment method on Step 3 is saved even if user closes tab or locks phone without clicking WhatsApp
         window.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && currentOrderData && currentOrderData.dbId && navigator.sendBeacon) {
+            if (document.visibilityState === 'hidden' && currentOrderData && currentOrderData.dbId && selectedPaymentMethod && navigator.sendBeacon) {
                 navigator.sendBeacon(
                     `/api/orders/${currentOrderData.dbId}/payment`,
                     JSON.stringify({ paymentMethod: selectedPaymentMethod })
@@ -808,7 +808,7 @@
             }
         });
         window.addEventListener('pagehide', () => {
-            if (currentOrderData && currentOrderData.dbId && navigator.sendBeacon) {
+            if (currentOrderData && currentOrderData.dbId && selectedPaymentMethod && navigator.sendBeacon) {
                 navigator.sendBeacon(
                     `/api/orders/${currentOrderData.dbId}/payment`,
                     JSON.stringify({ paymentMethod: selectedPaymentMethod })
@@ -816,22 +816,28 @@
             }
         });
 
-        // switchPaymentTab helper for EFT / eWallet selection
+        // switchPaymentTab helper for EFT / eWallet selection on Step 3
         async function switchPaymentTab(tab, shouldSync = true) {
             const tabEft = document.getElementById('payTabEft');
             const tabWallet = document.getElementById('payTabWallet');
+            const unselectedClass = "py-2.5 px-3 rounded-xl text-xs font-bold transition-all border-2 border-stone-200 bg-stone-50 text-stone-600 hover:border-avo-400";
+            const selectedClass = "py-2.5 px-3 rounded-xl text-xs font-bold transition-all border-2 border-avo-600 bg-avo-600 text-white shadow-sm";
 
             if (tab === 'eft') {
                 selectedPaymentMethod = 'Bank EFT';
-                tabEft.className = "flex-1 py-2 rounded-md text-xs font-bold transition-all bg-white text-stone-900 shadow-sm";
-                tabWallet.className = "flex-1 py-2 rounded-md text-xs font-bold text-stone-500 transition-all";
-            } else {
+                if (tabEft) tabEft.className = selectedClass;
+                if (tabWallet) tabWallet.className = unselectedClass;
+            } else if (tab === 'wallet') {
                 selectedPaymentMethod = 'FNB eWallet';
-                tabWallet.className = "flex-1 py-2 rounded-md text-xs font-bold transition-all bg-white text-stone-900 shadow-sm";
-                tabEft.className = "flex-1 py-2 rounded-md text-xs font-bold text-stone-500 transition-all";
+                if (tabWallet) tabWallet.className = selectedClass;
+                if (tabEft) tabEft.className = unselectedClass;
+            } else {
+                selectedPaymentMethod = '';
+                if (tabEft) tabEft.className = unselectedClass;
+                if (tabWallet) tabWallet.className = unselectedClass;
             }
 
-            if (shouldSync) {
+            if (shouldSync && selectedPaymentMethod) {
                 await syncOrderPaymentMethod();
             }
         }
@@ -971,12 +977,11 @@
                 : '';
             const dates = getPaymentDeadline();
 
-            // Default payment selector on Step 3 to Bank EFT for each new order
-            switchPaymentTab('eft', false);
+            // Start Step 3 with no payment method selected yet until customer chooses on the last page
+            switchPaymentTab('', false);
 
             const totalAmountStr = document.getElementById('totalPrice').innerText;
-            const paymentTag = isDeliveryConfirmed ? ` | Payment: ${selectedPaymentMethod}` : '';
-            const fullNote = `${address}${notes ? ` | Notes: ${notes}` : ''}${paymentTag}`;
+            const fullNote = `${address}${notes ? ` | Notes: ${notes}` : ''}`;
 
             // Send order to backend API
             try {
@@ -989,7 +994,7 @@
                         name: name,
                         phone: phone,
                         quantity: selectedBags * 10, // store total number of avocados or bags as requested (quantity = number of avocados or bags)
-                        paymentMethod: selectedPaymentMethod,
+                        paymentMethod: '',
                         note: fullNote
                     })
                 });
@@ -1017,7 +1022,7 @@
                         id: serverOrderId,
                         type: 'Confirmed Order',
                         fulfillment: isDeliverySelected ? 'Home Delivery' : 'Self Pick-Up',
-                        paymentMethod: selectedPaymentMethod,
+                        paymentMethod: '',
                         name: name,
                         phone: phone,
                         address: address,
@@ -1073,6 +1078,10 @@
         // WHATSAPP INTEGRATION (GREETING + REFERENCE NUMBER, PHONE NUMBER & PAYMENT METHOD)
         function shareOrderToWhatsApp() {
             if (!currentOrderData) return;
+            if (!selectedPaymentMethod) {
+                showToast('Please select Bank EFT or FNB eWallet above first');
+                return;
+            }
             syncOrderPaymentMethod();
             const text = `Hi Tsumeb Avos! 🥑\n\nHere are my order details:\nReference: ${currentOrderData.id}\nPhone: ${currentOrderData.phone}\nPayment Method: ${selectedPaymentMethod}\n\nPlease send me the payment details. Thank you!`;
             const encodedText = encodeURIComponent(text);
@@ -1129,7 +1138,7 @@
             await syncOrderPaymentMethod();
             document.getElementById('customerForm').reset();
             selectPickupLocation('bc_barnes');
-            switchPaymentTab('eft', false);
+            switchPaymentTab('', false);
             toggleDeliveryOption(false);
             updateQuantity(1);
             document.getElementById('quantityRange').value = 1;
