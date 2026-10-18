@@ -385,13 +385,12 @@
 
             <div class="bg-white p-3 rounded-xl border border-stone-200/80 text-xs space-y-1.5">
                 <div class="flex justify-between text-stone-600">
-                    <span>Contact:</span>
-                    <span class="font-medium text-stone-800"><span id="waitlistName">-</span> (<span id="waitlistPhone">-</span>)</span>
-                </div>
-                <div class="flex justify-between text-stone-600">
                     <span>Estimated Total:</span>
                     <span id="waitlistTotal" class="font-bold text-avo-700">-</span>
                 </div>
+                <p class="text-[11px] text-stone-600 text-center pt-1 border-t border-stone-100">
+                    <i class="fa-brands fa-whatsapp text-emerald-600 mr-1"></i>Please send us a WhatsApp message below to confirm your spot on the waitlist.
+                </p>
             </div>
 
             <div class="flex items-center space-x-2">
@@ -1059,8 +1058,6 @@
 
                     document.getElementById('displayWaitNumber').innerText = serverOrderId;
                     document.getElementById('waitlistBagsCount').innerText = `${selectedBags} ${selectedBags === 1 ? 'bag' : 'bags'}`;
-                    document.getElementById('waitlistName').innerText = name;
-                    document.getElementById('waitlistPhone').innerText = phone;
                     document.getElementById('waitlistTotal').innerText = totalAmountStr;
                     document.getElementById('step3Title').innerText = "Waitlist";
                 }
